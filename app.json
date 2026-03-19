@@ -1,0 +1,14 @@
+{
+  "package_id": "ai.coreline.friday",
+  "edition": "202601",
+  "name": "Friday",
+  "version": "1.0.0",
+  "min_app_version": "0.1.0",
+  "tagline": "Friday AI on your glasses",
+  "description": "Connects Friday AI assistant to G2 glasses display",
+  "author": "Micah Baird",
+  "entrypoint": "index.html",
+  "permissions": {
+    "network": ["*"]
+  }
+}
