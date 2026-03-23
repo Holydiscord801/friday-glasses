@@ -119,8 +119,12 @@ export function startPolling(intervalMs = 2000) {
   pollTimer = setInterval(async () => {
     try {
       const res = await fetch('/api/state');
-      if (!res.ok) return;
+      if (!res.ok) {
+        setGlassesStatus({ connected: false });
+        return;
+      }
       const data = await res.json();
+      setGlassesStatus({ connected: true });
       if (data.lastUpdate && data.lastUpdate > state.lastUpdate) {
         if (data.teleprompter) setState({ teleprompter: data.teleprompter });
         if (data.notes) setState({ notes: data.notes });
@@ -135,7 +139,7 @@ export function startPolling(intervalMs = 2000) {
         }
       }
     } catch {
-      // polling failed, ignore
+      setGlassesStatus({ connected: false });
     }
   }, intervalMs);
 }
