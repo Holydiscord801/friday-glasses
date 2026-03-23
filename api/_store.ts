@@ -46,6 +46,7 @@ export interface ServerState {
   contact: Contact | null;
   conversation: { entries: ConversationEntry[] };
   pending_question: string | null;
+  pending_audio: string | null;
   lastUpdate: number;
 }
 
@@ -55,6 +56,7 @@ const defaultState: ServerState = {
   contact: null,
   conversation: { entries: [] },
   pending_question: null,
+  pending_audio: null,
   lastUpdate: Date.now(),
 };
 

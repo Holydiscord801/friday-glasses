@@ -2,15 +2,16 @@ import { useState, useEffect } from 'react';
 import { useSyncExternalStore } from 'react';
 import { subscribe, getState, setPage, clearConversation } from '../store';
 import { useFriday } from '../hooks/useFriday';
+import { useAudioCapture } from '../hooks/useAudioCapture';
 import { Page } from 'even-toolkit/web/page';
 import { Button } from 'even-toolkit/web/button';
-import { Badge } from 'even-toolkit/web/badge';
 import { ScreenHeader } from 'even-toolkit/web/screen-header';
 import { ChatContainer, ChatInput, type ChatMessage } from 'even-toolkit/web/chat';
 
 export function ConversationPage() {
   const state = useSyncExternalStore(subscribe, getState);
   const { sendMessage } = useFriday();
+  const { isRecording, toggleRecording } = useAudioCapture();
   const [inputValue, setInputValue] = useState('');
 
   useEffect(() => {
@@ -67,12 +68,17 @@ export function ConversationPage() {
     <Page className="flex flex-col h-[100dvh]">
       <ScreenHeader
         title="Conversation"
-        subtitle="Type below to talk to Friday"
+        subtitle={isRecording ? 'Recording... tap Stop to send' : 'Type or use mic to talk to Friday'}
         actions={
           <div className="flex items-center gap-2">
-            <Badge variant="neutral">
-              Mic Coming Soon
-            </Badge>
+            <Button
+              variant={isRecording ? 'danger' : 'secondary'}
+              size="sm"
+              onClick={toggleRecording}
+              disabled={isProcessing}
+            >
+              {isRecording ? 'Stop Mic' : 'Mic'}
+            </Button>
             <Button variant="ghost" size="sm" onClick={handleClear}>
               Clear
             </Button>
