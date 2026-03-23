@@ -8,7 +8,7 @@ if len(sys.argv) < 2:
     print("Usage: transcribe.py <audio_file>", file=sys.stderr)
     sys.exit(1)
 
-model = WhisperModel("base")
+model = WhisperModel("base.en", device="cpu", compute_type="int8")
 segments, _ = model.transcribe(sys.argv[1])
 text = " ".join(s.text for s in segments).strip()
 

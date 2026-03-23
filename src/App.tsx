@@ -148,23 +148,35 @@ function toDisplayData(snapshot: AppState, nav: GlassNavState): DisplayData {
           ],
         };
       }
-      const recent = entries.slice(-6);
-      const displayLines: DisplayData['lines'] = [
-        line('  CONVERSATION'),
-        separator(),
-      ];
-      for (const entry of recent) {
-        if (entry.role === 'user') {
-          displayLines.push(line(`  \u25B6 User: ${entry.text}`));
-        } else {
-          displayLines.push(line(`  \u25C0 Friday: ${entry.text}`));
-        }
+      // Show most recent Friday response at top so no scrolling needed
+      const lastFriday = [...entries].reverse().find(e => e.role === 'friday');
+      const lastUser = [...entries].reverse().find(e => e.role === 'user');
+      const displayLines: DisplayData['lines'] = [];
+      if (snapshot.conversation.micOn) {
+        displayLines.push(line('  \uD83C\uDFA4 Listening...'));
+        displayLines.push(separator());
+      } else if (snapshot.conversation.isProcessing) {
+        displayLines.push(line('  \u231B Thinking...'));
         displayLines.push(separator());
       }
-      if (snapshot.conversation.micOn) {
-        displayLines.push(line('  Listening...', 'meta'));
-      } else if (snapshot.conversation.isProcessing) {
-        displayLines.push(line('  Thinking...', 'meta'));
+      if (lastFriday) {
+        displayLines.push(line('  FRIDAY:'));
+        // Word-wrap long responses across multiple lines
+        const words = lastFriday.text.split(' ');
+        let currentLine = '  ';
+        for (const word of words) {
+          if ((currentLine + word).length > 38) {
+            displayLines.push(line(currentLine.trimEnd()));
+            currentLine = '  ' + word + ' ';
+          } else {
+            currentLine += word + ' ';
+          }
+        }
+        if (currentLine.trim()) displayLines.push(line(currentLine.trimEnd()));
+        displayLines.push(separator());
+      }
+      if (lastUser) {
+        displayLines.push(line(`  You: ${lastUser.text.slice(0, 35)}${lastUser.text.length > 35 ? '...' : ''}`));
       }
       return { lines: displayLines };
     }
