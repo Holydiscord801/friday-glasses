@@ -1,85 +1,89 @@
+import { useEffect } from 'react';
 import { useSyncExternalStore } from 'react';
 import { useNavigate } from 'react-router';
 import { subscribe, getState, setPage } from '../store';
-import { Page } from 'even-toolkit/web/page';
-import { Card } from 'even-toolkit/web/card';
-import { Button } from 'even-toolkit/web/button';
-import { Badge } from 'even-toolkit/web/badge';
-import { ScreenHeader } from 'even-toolkit/web/screen-header';
-import { SectionHeader } from 'even-toolkit/web/section-header';
-import { StatusDot } from 'even-toolkit/web/status-dot';
-import { Divider } from 'even-toolkit/web/divider';
 import { GlassesPreview } from '../components/GlassesPreview';
-import { useEffect } from 'react';
 
 export function HomePage() {
   const state = useSyncExternalStore(subscribe, getState);
   const navigate = useNavigate();
   const { glasses } = state;
 
-  useEffect(() => {
-    setPage('home');
-  }, []);
+  useEffect(() => { setPage('home'); }, []);
 
   return (
-    <Page>
-      <ScreenHeader title="Friday" subtitle="AI Glasses Assistant" />
-
-      <div className="flex flex-col gap-4 mt-4">
-        {/* Glasses Preview */}
-        <Card variant="elevated" padding="default">
-          <GlassesPreview />
-        </Card>
-
-        {/* Status Card */}
-        <Card variant="default" padding="default">
-          <SectionHeader title="Device Status" />
-          <div className="flex flex-col gap-3 mt-2">
-            <div className="flex items-center justify-between">
-              <span className="text-text-dim text-sm">Connection</span>
-              <div className="flex items-center gap-2">
-                <StatusDot connected={glasses.connected} />
-                <Badge variant={glasses.connected ? 'positive' : 'negative'}>
-                  {glasses.connected ? 'Connected' : 'Disconnected'}
-                </Badge>
-              </div>
-            </div>
-            <Divider variant="default" />
-            <div className="flex items-center justify-between">
-              <span className="text-text-dim text-sm">Battery</span>
-              <Badge variant={glasses.battery > 20 ? 'neutral' : 'negative'}>
-                {glasses.battery}%
-              </Badge>
-            </div>
-          </div>
-        </Card>
-
-        {/* Quick Actions */}
-        <SectionHeader title="Quick Actions" />
-        <div className="flex flex-col gap-2">
-          <Button
-            variant="highlight"
-            size="lg"
-            onClick={() => navigate('/conversation')}
-          >
-            Start Conversation
-          </Button>
-          <Button
-            variant="default"
-            size="lg"
-            onClick={() => navigate('/teleprompter')}
-          >
-            Open Teleprompter
-          </Button>
-          <Button
-            variant="default"
-            size="lg"
-            onClick={() => navigate('/notes')}
-          >
-            View Notes
-          </Button>
-        </div>
+    <div className="flex flex-col gap-4 py-4">
+      <div className="text-center">
+        <h1 className="text-xl font-bold" style={{ color: 'var(--color-text)' }}>Friday</h1>
+        <p className="text-xs mt-1" style={{ color: 'var(--color-text-muted)' }}>AI Glasses Control Panel</p>
       </div>
-    </Page>
+
+      <GlassesPreview />
+
+      <div
+        className="flex items-center justify-between px-3 py-2.5 rounded-lg"
+        style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+      >
+        <div className="flex items-center gap-2">
+          <div
+            className="w-2 h-2 rounded-full"
+            style={{ background: glasses.connected ? 'var(--color-positive)' : 'var(--color-negative)' }}
+          />
+          <span className="text-sm" style={{ color: 'var(--color-text-dim)' }}>
+            {glasses.connected ? 'Connected' : 'Disconnected'}
+          </span>
+        </div>
+        <span className="text-sm" style={{ color: 'var(--color-text-dim)' }}>
+          Battery {glasses.battery}%
+        </span>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          onClick={() => navigate('/conversation')}
+          className="flex flex-col gap-1 p-4 rounded-xl text-left transition-opacity active:opacity-70"
+          style={{ background: 'rgba(0,180,80,0.08)', border: '1px solid rgba(0,180,80,0.25)' }}
+        >
+          <span className="text-base font-semibold" style={{ color: 'var(--color-text)' }}>Chat</span>
+          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Talk to Friday</span>
+        </button>
+        <button
+          onClick={() => navigate('/teleprompter')}
+          className="flex flex-col gap-1 p-4 rounded-xl text-left transition-opacity active:opacity-70"
+          style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+        >
+          <span className="text-base font-semibold" style={{ color: 'var(--color-text)' }}>Teleprompter</span>
+          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>Display text</span>
+        </button>
+        <button
+          onClick={() => navigate('/notes')}
+          className="flex flex-col gap-1 p-4 rounded-xl text-left transition-opacity active:opacity-70"
+          style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+        >
+          <span className="text-base font-semibold" style={{ color: 'var(--color-text)' }}>Notes</span>
+          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+            {state.notes.length} note{state.notes.length !== 1 ? 's' : ''}
+          </span>
+        </button>
+        <button
+          onClick={() => navigate('/contact')}
+          className="flex flex-col gap-1 p-4 rounded-xl text-left transition-opacity active:opacity-70"
+          style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+        >
+          <span className="text-base font-semibold" style={{ color: 'var(--color-text)' }}>Contact</span>
+          <span className="text-xs" style={{ color: 'var(--color-text-muted)' }}>
+            {state.contact ? state.contact.name : 'No card'}
+          </span>
+        </button>
+      </div>
+
+      <button
+        onClick={() => navigate('/settings')}
+        className="flex items-center justify-center py-3 rounded-xl transition-opacity active:opacity-70"
+        style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+      >
+        <span className="text-sm" style={{ color: 'var(--color-text-dim)' }}>Settings</span>
+      </button>
+    </div>
   );
 }

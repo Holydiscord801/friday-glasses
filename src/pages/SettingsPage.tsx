@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useSyncExternalStore } from 'react';
-import { subscribe, getState, setPage, updateSettings } from '../store';
+import { subscribe, getState, setPage, updateSettings, clearConversation } from '../store';
+import { activateKeepAlive, deactivateKeepAlive } from 'even-toolkit/keep-alive';
 import { Page } from 'even-toolkit/web/page';
 import { Card } from 'even-toolkit/web/card';
 import { Button } from 'even-toolkit/web/button';
@@ -52,6 +53,23 @@ export function SettingsPage() {
               <Toggle
                 checked={settings.showBattery}
                 onChange={(checked) => updateSettings({ showBattery: checked })}
+              />
+            }
+          />
+        </SettingsGroup>
+
+        {/* Keep-alive */}
+        <SettingsGroup label="Glasses">
+          <ListItem
+            title="Keep-alive"
+            subtitle="Prevent G2 screen timeout (~30s)"
+            trailing={
+              <Toggle
+                checked={settings.keepAlive}
+                onChange={(checked) => {
+                  updateSettings({ keepAlive: checked });
+                  if (checked) activateKeepAlive(); else deactivateKeepAlive();
+                }}
               />
             }
           />
@@ -112,6 +130,19 @@ export function SettingsPage() {
             title="Battery Level"
             trailing={
               <span className="text-sm text-text-dim">{glasses.battery}%</span>
+            }
+          />
+        </SettingsGroup>
+
+        {/* Conversation */}
+        <SettingsGroup label="Conversation">
+          <ListItem
+            title="Clear History"
+            subtitle="Remove all conversation messages"
+            trailing={
+              <Button variant="danger" size="sm" onClick={() => clearConversation()}>
+                Clear
+              </Button>
             }
           />
         </SettingsGroup>

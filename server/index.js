@@ -64,6 +64,14 @@ app.use((req, res, next) => {
   next();
 });
 
+// Cache-busting — prevent stale frontend assets
+app.use((_req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+});
+
 app.use(express.json({ limit: '10mb' }));
 
 // ── API Routes ───────────────────────────────────────────────────
