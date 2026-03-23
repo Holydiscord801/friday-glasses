@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useSyncExternalStore } from 'react';
-import { subscribe, getState, setPage, clearConversation } from '../store';
+import { subscribe, getState, setPage, clearConversation, toggleMic } from '../store';
 import { useFriday } from '../hooks/useFriday';
-import { useAudioCapture } from '../hooks/useAudioCapture';
+import { useGlassesAudio } from '../hooks/useAudioCapture';
 import { Page } from 'even-toolkit/web/page';
 import { Button } from 'even-toolkit/web/button';
 import { ScreenHeader } from 'even-toolkit/web/screen-header';
@@ -11,14 +11,16 @@ import { ChatContainer, ChatInput, type ChatMessage } from 'even-toolkit/web/cha
 export function ConversationPage() {
   const state = useSyncExternalStore(subscribe, getState);
   const { sendMessage } = useFriday();
-  const { isRecording, toggleRecording } = useAudioCapture();
   const [inputValue, setInputValue] = useState('');
+
+  const { micOn, entries, isProcessing } = state.conversation;
+
+  // Glasses audio capture — reacts to micOn (toggled by R1 tap or button)
+  useGlassesAudio(micOn);
 
   useEffect(() => {
     setPage('conversation');
   }, []);
-
-  const { entries, isProcessing } = state.conversation;
 
   // Convert ConversationEntry[] to ChatMessage[]
   const messages: ChatMessage[] = entries.map((entry) => ({
@@ -33,7 +35,7 @@ export function ConversationPage() {
     messages.push({
       id: 'processing',
       role: 'assistant',
-      content: 'Thinking...',
+      content: micOn ? 'Listening...' : 'Thinking...',
       isStreaming: true,
     });
   }
@@ -68,16 +70,16 @@ export function ConversationPage() {
     <Page className="flex flex-col h-[100dvh]">
       <ScreenHeader
         title="Conversation"
-        subtitle={isRecording ? 'Recording... tap Stop to send' : 'Type or use mic to talk to Friday'}
+        subtitle={micOn ? 'Listening... speak then pause to send' : 'Type or tap Mic to talk to Friday'}
         actions={
           <div className="flex items-center gap-2">
             <Button
-              variant={isRecording ? 'danger' : 'secondary'}
+              variant={micOn ? 'danger' : 'secondary'}
               size="sm"
-              onClick={toggleRecording}
-              disabled={isProcessing}
+              onClick={toggleMic}
+              disabled={isProcessing && !micOn}
             >
-              {isRecording ? 'Stop Mic' : 'Mic'}
+              {micOn ? 'Stop Mic' : 'Mic'}
             </Button>
             <Button variant="ghost" size="sm" onClick={handleClear}>
               Clear

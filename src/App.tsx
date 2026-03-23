@@ -132,16 +132,19 @@ function toDisplayData(snapshot: AppState, nav: GlassNavState): DisplayData {
     case 'conversation': {
       const entries = snapshot.conversation.entries;
       if (entries.length === 0) {
-        const micLabel = snapshot.conversation.micOn ? 'MIC ON' : 'MIC OFF';
         return {
           lines: [
             line('  FRIDAY CONVERSATION'),
             separator(),
             line(''),
             line('  Tap R1 to start talking.'),
-            line('  Friday is listening.'),
             line(''),
-            line(`  ${micLabel}`, 'meta'),
+            line(
+              snapshot.conversation.micOn
+                ? '  Listening...'
+                : '  Mic off — tap R1',
+              'meta',
+            ),
           ],
         };
       }
@@ -158,7 +161,9 @@ function toDisplayData(snapshot: AppState, nav: GlassNavState): DisplayData {
         }
         displayLines.push(separator());
       }
-      if (snapshot.conversation.isProcessing) {
+      if (snapshot.conversation.micOn) {
+        displayLines.push(line('  Listening...', 'meta'));
+      } else if (snapshot.conversation.isProcessing) {
         displayLines.push(line('  Thinking...', 'meta'));
       }
       return { lines: displayLines };

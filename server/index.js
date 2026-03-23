@@ -203,6 +203,65 @@ app.delete('/api/audio', (_req, res) => {
   res.json({ success: true });
 });
 
+// POST /api/transcribe — accept raw WAV binary from glasses mic
+app.post('/api/transcribe', express.raw({ type: 'audio/*', limit: '5mb' }), async (req, res) => {
+  if (!req.body || req.body.length === 0) {
+    return res.status(400).json({ success: false, error: 'No audio data' });
+  }
+
+  const wavKB = Math.round(req.body.length / 1024);
+  console.log(`[friday] Voice received (${wavKB}KB WAV)`);
+
+  // Save to temp file
+  await mkdir(AUDIO_DIR, { recursive: true });
+  const wavPath = `${AUDIO_DIR}/voice-${Date.now()}.wav`;
+  await writeFile(wavPath, req.body);
+
+  let transcript;
+  try {
+    const { stdout } = await execFileAsync('python3', [TRANSCRIBE_SCRIPT, wavPath], {
+      timeout: 30_000,
+      maxBuffer: 1024 * 1024,
+    });
+    transcript = stdout.trim();
+    if (!transcript || transcript === '[inaudible]') throw new Error('Could not transcribe');
+    console.log(`[friday] Transcript: ${transcript}`);
+  } catch (err) {
+    await unlink(wavPath).catch(() => {});
+    return res.status(500).json({ success: false, error: `Transcription failed: ${err.message}` });
+  }
+  await unlink(wavPath).catch(() => {});
+
+  // Add user entry
+  const userEntry = { role: 'user', text: transcript, timestamp: new Date().toISOString() };
+  updateStore({
+    conversation: { entries: [...store.conversation.entries, userEntry] },
+    pending_question: transcript,
+  });
+
+  // Call OpenClaw
+  let answer;
+  try {
+    answer = await callOpenClaw(transcript);
+  } catch (err) {
+    console.error('[friday] OpenClaw error:', err.message);
+    answer = `Sorry, I couldn't process that. (${err.message})`;
+  }
+
+  console.log(`[friday] Answer: ${answer.slice(0, 120)}${answer.length > 120 ? '...' : ''}`);
+
+  const fridayEntry = { role: 'friday', text: answer, timestamp: new Date().toISOString() };
+  updateStore({
+    conversation: { entries: [...store.conversation.entries, fridayEntry] },
+    pending_question: null,
+  });
+
+  res.json({
+    success: true,
+    data: { transcript, response: answer },
+  });
+});
+
 // POST /api/conversation — legacy alias for /api/ask
 app.post('/api/conversation', async (req, res) => {
   req.url = '/api/ask';
@@ -339,7 +398,7 @@ app.post('/api/command', (req, res) => {
 // ── Static frontend (serves built Vite app) ──
 
 app.use(express.static(DIST_DIR));
-app.get('*', (req, res) => {
+app.get('/{*path}', (req, res) => {
   if (!req.path.startsWith('/api/')) {
     res.sendFile(join(DIST_DIR, 'index.html'));
   }
@@ -350,13 +409,18 @@ app.get('*', (req, res) => {
 async function callOpenClaw(message) {
   const { stdout } = await execFileAsync(
     'openclaw',
-    ['agent', '--message', message, '--json'],
+    ['agent', '--session-id', 'main', '--message', message, '--json'],
     { timeout: 60_000, maxBuffer: 1024 * 1024 },
   );
   try {
-    const json = JSON.parse(stdout.trim());
+    // Strip plugin log lines before the JSON
+    const jsonStart = stdout.indexOf('{');
+    const clean = jsonStart >= 0 ? stdout.slice(jsonStart) : stdout;
+    const json = JSON.parse(clean.trim());
     return (
-      json.response || json.message || json.answer || json.text || json.content || JSON.stringify(json)
+      json?.result?.payloads?.[0]?.text ||
+      json.response || json.message || json.answer || json.text || json.content ||
+      'No response.'
     );
   } catch {
     return stdout.trim() || 'No response from OpenClaw.';

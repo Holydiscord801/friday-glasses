@@ -82,6 +82,12 @@ export function toggleMic() {
   });
 }
 
+export function setMicOn(on: boolean) {
+  setState({
+    conversation: { ...state.conversation, micOn: on },
+  });
+}
+
 export function addConversationEntry(entry: ConversationEntry) {
   setState({
     conversation: {
