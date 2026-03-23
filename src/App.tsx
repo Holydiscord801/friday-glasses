@@ -15,6 +15,7 @@ import {
   clearTeleprompter,
   toggleMic,
   clearConversation,
+  setConversationScroll,
   startPolling,
   stopPolling,
 } from './store';
@@ -142,43 +143,53 @@ function toDisplayData(snapshot: AppState, nav: GlassNavState): DisplayData {
             line(
               snapshot.conversation.micOn
                 ? '  Listening...'
-                : '  Mic off — tap R1',
+                : '  Mic off \u2014 tap R1',
               'meta',
             ),
           ],
         };
       }
-      // Show most recent Friday response at top so no scrolling needed
+      // Build ALL lines first, then apply scroll window
       const lastFriday = [...entries].reverse().find(e => e.role === 'friday');
       const lastUser = [...entries].reverse().find(e => e.role === 'user');
-      const displayLines: DisplayData['lines'] = [];
+      const allLines: DisplayData['lines'] = [];
       if (snapshot.conversation.micOn) {
-        displayLines.push(line('  \uD83C\uDFA4 Listening...'));
-        displayLines.push(separator());
+        allLines.push(line('  \uD83C\uDFA4 Listening...'));
+        allLines.push(separator());
       } else if (snapshot.conversation.isProcessing) {
-        displayLines.push(line('  \u231B Thinking...'));
-        displayLines.push(separator());
+        allLines.push(line('  \u231B Thinking...'));
+        allLines.push(separator());
       }
       if (lastFriday) {
-        displayLines.push(line('  FRIDAY:'));
-        // Word-wrap long responses across multiple lines
+        allLines.push(line('  FRIDAY:'));
         const words = lastFriday.text.split(' ');
-        let currentLine = '  ';
+        let curLine = '  ';
         for (const word of words) {
-          if ((currentLine + word).length > 38) {
-            displayLines.push(line(currentLine.trimEnd()));
-            currentLine = '  ' + word + ' ';
+          if ((curLine + word).length > 38) {
+            allLines.push(line(curLine.trimEnd()));
+            curLine = '  ' + word + ' ';
           } else {
-            currentLine += word + ' ';
+            curLine += word + ' ';
           }
         }
-        if (currentLine.trim()) displayLines.push(line(currentLine.trimEnd()));
-        displayLines.push(separator());
+        if (curLine.trim()) allLines.push(line(curLine.trimEnd()));
+        allLines.push(separator());
       }
       if (lastUser) {
-        displayLines.push(line(`  You: ${lastUser.text.slice(0, 35)}${lastUser.text.length > 35 ? '...' : ''}`));
+        allLines.push(line(`  You: ${lastUser.text.slice(0, 35)}${lastUser.text.length > 35 ? '...' : ''}`));
       }
-      return { lines: displayLines };
+      // Scroll window: show 5 lines starting at scrollOffset
+      const offset = snapshot.conversation.scrollOffset;
+      const visible = allLines.slice(offset, offset + 5);
+      const result: DisplayData['lines'] = [];
+      if (offset > 0) {
+        result.push(line('  \u25B2 top', 'meta'));
+      }
+      result.push(...visible);
+      if (offset + 5 < allLines.length) {
+        result.push(line('  \u25BC more', 'meta'));
+      }
+      return { lines: result };
     }
 
     case 'notes': {
@@ -454,7 +465,35 @@ export function App() {
             return nav;
           }
 
-          // conversation and others — no index movement needed
+          if (screen === 'conversation') {
+            const curOffset = snapshot.conversation.scrollOffset;
+            // Compute total lines to cap scroll (mirrors toDisplayData logic)
+            const convEntries = snapshot.conversation.entries;
+            let totalLines = 0;
+            if (snapshot.conversation.micOn || snapshot.conversation.isProcessing) totalLines += 2;
+            const lf = [...convEntries].reverse().find(e => e.role === 'friday');
+            if (lf) {
+              totalLines += 1; // "FRIDAY:" header
+              const words = lf.text.split(' ');
+              let cl = '  ';
+              for (const w of words) {
+                if ((cl + w).length > 38) { totalLines++; cl = '  ' + w + ' '; }
+                else { cl += w + ' '; }
+              }
+              if (cl.trim()) totalLines++;
+              totalLines += 1; // separator
+            }
+            const lu = [...convEntries].reverse().find(e => e.role === 'user');
+            if (lu) totalLines++;
+            const maxOffset = Math.max(0, totalLines - 5);
+            if (dir === 'down') {
+              setConversationScroll(Math.min(curOffset + 1, maxOffset));
+            } else {
+              setConversationScroll(Math.max(curOffset - 1, 0));
+            }
+            return nav;
+          }
+
           return nav;
         }
 

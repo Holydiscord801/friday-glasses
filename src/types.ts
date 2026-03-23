@@ -33,6 +33,7 @@ export interface AppState {
     micOn: boolean;
     entries: ConversationEntry[];
     isProcessing: boolean;
+    scrollOffset: number;
   };
   glasses: {
     connected: boolean;

@@ -6,7 +6,7 @@ const initialState: AppState = {
   teleprompter: { content: '', scrollPosition: 0 },
   notes: [],
   contact: null,
-  conversation: { micOn: false, entries: [], isProcessing: false },
+  conversation: { micOn: false, entries: [], isProcessing: false, scrollOffset: 0 },
   glasses: { connected: false, battery: 100 },
   settings: { fontSize: 16, scrollSpeed: 1, darkMode: true, showBattery: true },
   lastUpdate: Date.now(),
@@ -93,7 +93,14 @@ export function addConversationEntry(entry: ConversationEntry) {
     conversation: {
       ...state.conversation,
       entries: [...state.conversation.entries, entry],
+      scrollOffset: 0,
     },
+  });
+}
+
+export function setConversationScroll(offset: number) {
+  setState({
+    conversation: { ...state.conversation, scrollOffset: Math.max(0, offset) },
   });
 }
 
@@ -105,7 +112,7 @@ export function setProcessing(isProcessing: boolean) {
 
 export function clearConversation() {
   setState({
-    conversation: { micOn: false, entries: [], isProcessing: false },
+    conversation: { micOn: false, entries: [], isProcessing: false, scrollOffset: 0 },
   });
 }
 
