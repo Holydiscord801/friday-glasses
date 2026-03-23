@@ -704,32 +704,13 @@ export function App() {
           return nav;
         }
 
-        // ── DOUBLE TAP (GO_BACK) ──
+        // ── DOUBLE TAP (GO_BACK) — always goes home ──
         case 'GO_BACK': {
           if (screen === 'home') {
             setFlash('\u2605 Friday Active \u2605');
             return nav;
           }
-
-          if (screen === 'conversation') {
-            clearConversation();
-            setConversationScroll(0);
-            setFlash('History cleared');
-            return nav;
-          }
-
-          if (screen === 'teleprompter') {
-            clearTeleprompter();
-            navigate('/');
-            return { ...nav, screen: 'home', highlightedIndex: 0 };
-          }
-
-          if (screen === 'note-detail') {
-            navigate('/notes');
-            return { ...nav, screen: 'notes', highlightedIndex: 0 };
-          }
-
-          // All other sub-screens → home
+          // From anywhere: double tap = back to main menu
           navigate('/');
           return { ...nav, screen: 'home', highlightedIndex: 0 };
         }
