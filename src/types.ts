@@ -45,6 +45,8 @@ export interface AppState {
     darkMode: boolean;
     showBattery: boolean;
   };
+  flashMessage: string | null;
+  viewingNoteIndex: number;
   lastUpdate: number;
 }
 

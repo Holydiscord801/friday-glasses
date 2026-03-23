@@ -9,6 +9,8 @@ const initialState: AppState = {
   conversation: { micOn: false, entries: [], isProcessing: false, scrollOffset: 0 },
   glasses: { connected: false, battery: 100 },
   settings: { fontSize: 16, scrollSpeed: 1, darkMode: true, showBattery: true },
+  flashMessage: null,
+  viewingNoteIndex: 0,
   lastUpdate: Date.now(),
 };
 
@@ -122,6 +124,21 @@ export function setGlassesStatus(glasses: Partial<AppState['glasses']>) {
 
 export function updateSettings(settings: Partial<AppState['settings']>) {
   setState({ settings: { ...state.settings, ...settings } });
+}
+
+let flashTimer: ReturnType<typeof setTimeout> | null = null;
+
+export function setFlash(msg: string, durationMs = 1500) {
+  if (flashTimer) clearTimeout(flashTimer);
+  setState({ flashMessage: msg });
+  flashTimer = setTimeout(() => {
+    setState({ flashMessage: null });
+    flashTimer = null;
+  }, durationMs);
+}
+
+export function setViewingNote(index: number) {
+  setState({ viewingNoteIndex: index });
 }
 
 // ── Polling for remote updates ──

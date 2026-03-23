@@ -3,7 +3,8 @@ import { Routes, Route, useNavigate, useLocation } from 'react-router';
 import { useGlasses } from 'even-toolkit/useGlasses';
 import type { GlassAction, GlassNavState } from 'even-toolkit/types';
 import { line, separator } from 'even-toolkit/types';
-import { paginateText, pageIndicator } from 'even-toolkit/paginate-text';
+import { paginateText, pageIndicator, wordWrap } from 'even-toolkit/paginate-text';
+import { cleanForG2 } from 'even-toolkit/text-clean';
 import { NavBar } from 'even-toolkit/web/nav-bar';
 import { Page } from 'even-toolkit/web/page';
 import {
@@ -11,16 +12,18 @@ import {
   subscribe,
   getSnapshot,
   setPage,
-  scrollTeleprompter,
   clearTeleprompter,
   toggleMic,
   clearConversation,
   setConversationScroll,
+  updateSettings,
+  setFlash,
+  setViewingNote,
   startPolling,
   stopPolling,
 } from './store';
-import type { AppState, PageName } from './types';
-import type { DisplayData } from 'even-toolkit/types';
+import type { AppState, PageName, ContactCard } from './types';
+import type { DisplayData, DisplayLine } from 'even-toolkit/types';
 import { GlassesPreview } from './components/GlassesPreview';
 import { ConversationPage } from './pages/ConversationPage';
 import './App.css';
@@ -39,7 +42,102 @@ const NAV_ITEMS = [
 // Screens navigable from the home menu on glasses
 const HOME_MENU = ['conversation', 'teleprompter', 'notes', 'contact', 'settings'] as const;
 
-// ── Helpers ──
+// ── G2 display constants ──
+
+const LINE_W = 44;       // usable chars per line (with margins)
+const CONTENT_LINES = 6; // lines in scrollable content area
+
+// Menu icons (G2-safe Unicode geometric shapes)
+const MENU_ICONS = ['\u25B6', '\u25A1', '\u25A0', '\u25C7', '\u25CB'] as const; // ▶ □ ■ ◇ ○
+const MENU_LABELS = ['Chat', 'Teleprompter', 'Notes', 'Contact', 'Settings'] as const;
+
+// Settings items
+const SETTINGS_LABELS = ['Mic enabled', 'Show battery', 'Scroll speed', 'Clear history', 'About'] as const;
+
+// ── G2 display helpers ──
+
+/** Right-align: put `left` on the left and `right` on the right, padded to width */
+function rAlign(left: string, right: string, w = LINE_W): string {
+  const gap = Math.max(1, w - left.length - right.length);
+  return left + ' '.repeat(gap) + right;
+}
+
+/** Pad/trim an array of DisplayLines to exactly `n` lines */
+function padLines(lines: DisplayLine[], n = CONTENT_LINES): DisplayLine[] {
+  const out = lines.slice(0, n);
+  while (out.length < n) out.push(line(''));
+  return out;
+}
+
+/** Apply scroll window with ▲/▼ indicators */
+function scrollView(all: DisplayLine[], offset: number, size = CONTENT_LINES): DisplayLine[] {
+  const visible = all.slice(offset, offset + size);
+  const padded = padLines(visible, size);
+  if (offset > 0) {
+    padded[0] = line('                     \u25B2', 'meta');
+  }
+  if (offset + size < all.length) {
+    padded[padded.length - 1] = line('                     \u25BC', 'meta');
+  }
+  return padded;
+}
+
+/** Build conversation content lines (shared between display and scroll calc) */
+function buildConversationLines(snapshot: AppState): DisplayLine[] {
+  const { entries } = snapshot.conversation;
+  const allLines: DisplayLine[] = [];
+  const lastFriday = [...entries].reverse().find(e => e.role === 'friday');
+  const lastUser = [...entries].reverse().find(e => e.role === 'user');
+
+  if (lastFriday) {
+    allLines.push(line('  FRIDAY:'));
+    for (const wl of wordWrap(cleanForG2(lastFriday.text), 40)) {
+      allLines.push(line(`  ${wl}`));
+    }
+  }
+  if (lastUser) {
+    if (allLines.length > 0) allLines.push(separator());
+    const userText = cleanForG2(lastUser.text);
+    const truncated = userText.length > 38 ? userText.slice(0, 37) + '~' : userText;
+    allLines.push(line(`  You: ${truncated}`));
+  }
+  return allLines;
+}
+
+/** Build contact card content lines (shared between display and scroll calc) */
+function buildContactLines(c: ContactCard): DisplayLine[] {
+  const allLines: DisplayLine[] = [];
+  allLines.push(line(`  ${cleanForG2(c.name).toUpperCase()}`));
+  const subtitle = `${cleanForG2(c.title)} \u00B7 ${cleanForG2(c.company)}`;
+  allLines.push(line(`  ${subtitle.slice(0, 42)}`, 'meta'));
+  if (c.context) {
+    allLines.push(separator());
+    for (const wl of wordWrap(cleanForG2(c.context), 40)) {
+      allLines.push(line(`  ${wl}`));
+    }
+  }
+  if (c.talking_points.length > 0) {
+    allLines.push(separator());
+    for (const tp of c.talking_points) {
+      const wrapped = wordWrap(cleanForG2(tp), 38);
+      allLines.push(line(`  \u2022 ${wrapped[0] || ''}`));
+      for (let i = 1; i < wrapped.length; i++) {
+        allLines.push(line(`    ${wrapped[i]}`));
+      }
+    }
+  }
+  return allLines;
+}
+
+/** Compute auto-scroll offset to keep highlighted item visible in a list */
+function listViewOffset(highlighted: number, total: number, windowSize = CONTENT_LINES): number {
+  if (total <= windowSize) return 0;
+  const maxStart = total - windowSize;
+  const idealStart = Math.max(0, highlighted - 2);
+  return Math.min(idealStart, maxStart);
+}
+
+// ── Routing helpers ──
 
 function deriveScreen(path: string): string {
   if (path === '/') return 'home';
@@ -54,20 +152,13 @@ function deriveScreen(path: string): string {
 
 function screenToPath(screen: string): string {
   switch (screen) {
-    case 'home':
-      return '/';
-    case 'teleprompter':
-      return '/teleprompter';
-    case 'conversation':
-      return '/conversation';
-    case 'notes':
-      return '/notes';
-    case 'contact':
-      return '/contact';
-    case 'settings':
-      return '/settings';
-    default:
-      return '/';
+    case 'home': return '/';
+    case 'teleprompter': return '/teleprompter';
+    case 'conversation': return '/conversation';
+    case 'notes': return '/notes';
+    case 'contact': return '/contact';
+    case 'settings': return '/settings';
+    default: return '/';
   }
 }
 
@@ -78,217 +169,287 @@ function pageNameFromScreen(screen: string): PageName {
 }
 
 // ── Build glasses DisplayData from app state ──
+// Layout: header (1) + separator (1) + content (6) + separator (1) + footer (1) = 10 lines
 
 function toDisplayData(snapshot: AppState, nav: GlassNavState): DisplayData {
+  // ── Flash message overlay ──
+  if (snapshot.flashMessage) {
+    const msg = snapshot.flashMessage;
+    const pad = Math.max(0, Math.floor((LINE_W - msg.length) / 2));
+    return {
+      lines: [
+        line(''), line(''), line(''),
+        line(' '.repeat(pad) + msg),
+        line(''), line(''), line(''),
+        line(''), line(''), line(''),
+      ],
+    };
+  }
+
   const screen = nav.screen;
 
   switch (screen) {
+    // ────────────────────────────────────────────
+    // HOME — icon menu with status header
+    // ────────────────────────────────────────────
     case 'home': {
-      const time = new Date().toLocaleTimeString([], {
-        hour: '2-digit',
-        minute: '2-digit',
+      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const dot = snapshot.glasses.connected ? '\u25CF' : '\u25CB'; // ● or ○
+      const bat = snapshot.settings.showBattery ? ` ${snapshot.glasses.battery}%` : '';
+
+      const menuLines = HOME_MENU.map((_, i) => {
+        const icon = MENU_ICONS[i];
+        const label = MENU_LABELS[i];
+        return line(`   ${icon} ${label}`, 'normal', i === nav.highlightedIndex);
       });
-      const battery = `${snapshot.glasses.battery}%`;
-      const status = snapshot.glasses.connected ? 'CONNECTED' : 'DISCONNECTED';
-      const menuLines = HOME_MENU.map((item, i) => {
-        const label = item.charAt(0).toUpperCase() + item.slice(1);
-        return line(`  ${label}`, 'normal', i === nav.highlightedIndex);
-      });
+
       return {
         lines: [
-          line('  FRIDAY AI'),
-          line(`  ${time}  \u25A0 ${battery}  ${status}`, 'meta'),
+          line(rAlign('  FRIDAY AI', `${dot} ${time}${bat}`)),
           separator(),
-          ...menuLines,
+          ...padLines(menuLines, CONTENT_LINES),
+          separator(),
+          line(' \u2191\u2193 scroll   \u25CF select   \u25CF\u25CF exit', 'meta'),
         ],
       };
     }
 
+    // ────────────────────────────────────────────
+    // TELEPROMPTER — full-screen paginated text
+    // ────────────────────────────────────────────
     case 'teleprompter': {
       if (!snapshot.teleprompter.content) {
         return {
           lines: [
-            line(''),
-            line('  No teleprompter content.'),
-            line('  Push via API or type below.'),
+            line('  Teleprompter'),
+            separator(),
+            ...padLines([
+              line(''),
+              line('  No content loaded.'),
+              line('  Push via API or type below.'),
+            ]),
+            separator(),
+            line(' \u25CF\u25CF home', 'meta'),
           ],
         };
       }
-      const pages = paginateText(snapshot.teleprompter.content, 46, 9);
-      const pageIdx = Math.min(
-        Math.max(0, nav.highlightedIndex),
-        Math.max(0, pages.length - 1),
-      );
+      const pages = paginateText(snapshot.teleprompter.content, 42, CONTENT_LINES);
+      const pageIdx = Math.min(Math.max(0, nav.highlightedIndex), Math.max(0, pages.length - 1));
       const currentPage = pages[pageIdx] || [];
       const indicator = pageIndicator(pageIdx, pages.length);
+
       return {
         lines: [
-          ...currentPage.map((l) => line(`  ${l}`)),
-          line(''),
-          line(`                    ${indicator}`, 'meta'),
+          line(rAlign('  Teleprompter', indicator)),
+          separator(),
+          ...padLines(currentPage.map(l => line(`  ${l}`)), CONTENT_LINES),
+          separator(),
+          line(' \u2191\u2193 page   \u25CF\u25CF clear', 'meta'),
         ],
       };
     }
 
+    // ────────────────────────────────────────────
+    // CONVERSATION — status bar + scrollable chat
+    // ────────────────────────────────────────────
     case 'conversation': {
-      const entries = snapshot.conversation.entries;
+      const { entries, micOn, isProcessing } = snapshot.conversation;
+      const micStatus = micOn
+        ? '\u25CF MIC ON'
+        : isProcessing
+        ? '\u25C6 thinking'
+        : '\u25CB mic off';
+
       if (entries.length === 0) {
         return {
           lines: [
-            line('  FRIDAY CONVERSATION'),
+            line(rAlign('  FRIDAY \u203A Chat', micStatus)),
             separator(),
-            line(''),
-            line('  Tap R1 to start talking.'),
-            line(''),
-            line(
-              snapshot.conversation.micOn
-                ? '  Listening...'
-                : '  Mic off \u2014 tap R1',
-              'meta',
-            ),
+            ...padLines([
+              line(''),
+              line('  Say something to Friday.'),
+              line('  Tap to start listening.'),
+            ]),
+            separator(),
+            line(' \u2191\u2193 scroll   \u25CF mic   \u25CF\u25CF clear', 'meta'),
           ],
         };
       }
-      // Build ALL lines first, then apply scroll window
-      const lastFriday = [...entries].reverse().find(e => e.role === 'friday');
-      const lastUser = [...entries].reverse().find(e => e.role === 'user');
-      const allLines: DisplayData['lines'] = [];
-      if (snapshot.conversation.micOn) {
-        allLines.push(line('  \uD83C\uDFA4 Listening...'));
-        allLines.push(separator());
-      } else if (snapshot.conversation.isProcessing) {
-        allLines.push(line('  \u231B Thinking...'));
-        allLines.push(separator());
-      }
-      if (lastFriday) {
-        allLines.push(line('  FRIDAY:'));
-        const words = lastFriday.text.split(' ');
-        let curLine = '  ';
-        for (const word of words) {
-          if ((curLine + word).length > 38) {
-            allLines.push(line(curLine.trimEnd()));
-            curLine = '  ' + word + ' ';
-          } else {
-            curLine += word + ' ';
-          }
-        }
-        if (curLine.trim()) allLines.push(line(curLine.trimEnd()));
-        allLines.push(separator());
-      }
-      if (lastUser) {
-        allLines.push(line(`  You: ${lastUser.text.slice(0, 35)}${lastUser.text.length > 35 ? '...' : ''}`));
-      }
-      // Scroll window: show 5 lines starting at scrollOffset
+
+      const allLines = buildConversationLines(snapshot);
       const offset = snapshot.conversation.scrollOffset;
-      const visible = allLines.slice(offset, offset + 5);
-      const result: DisplayData['lines'] = [];
-      if (offset > 0) {
-        result.push(line('  \u25B2 top', 'meta'));
-      }
-      result.push(...visible);
-      if (offset + 5 < allLines.length) {
-        result.push(line('  \u25BC more', 'meta'));
-      }
-      return { lines: result };
+      const content = scrollView(allLines, offset);
+
+      return {
+        lines: [
+          line(rAlign('  FRIDAY \u203A Chat', micStatus)),
+          separator(),
+          ...content,
+          separator(),
+          line(' \u2191\u2193 scroll   \u25CF mic   \u25CF\u25CF clear', 'meta'),
+        ],
+      };
     }
 
+    // ────────────────────────────────────────────
+    // NOTES LIST — numbered, scrollable
+    // ────────────────────────────────────────────
     case 'notes': {
       if (snapshot.notes.length === 0) {
         return {
           lines: [
-            line('  NOTES'),
+            line('  FRIDAY \u203A Notes'),
             separator(),
-            line(''),
-            line('  No notes yet.'),
-            line('  Friday can add notes via API.'),
+            ...padLines([
+              line(''),
+              line('  No notes yet.'),
+              line('  Friday can add notes via API.'),
+            ]),
+            separator(),
+            line(' \u25CF\u25CF home', 'meta'),
           ],
         };
       }
-      const highlighted = nav.highlightedIndex;
-      const displayLines: DisplayData['lines'] = [
-        line('  NOTES'),
-        separator(),
-      ];
-      snapshot.notes.forEach((note, i) => {
-        const isHighlighted = i === highlighted;
-        displayLines.push(line(`  ${note.title}`, 'normal', isHighlighted));
-      });
-      return { lines: displayLines };
-    }
 
-    case 'note-detail': {
-      // Find the note — highlightedIndex from the notes list, stored in the nav
-      const noteIdx = Math.min(
-        Math.max(0, nav.highlightedIndex),
-        Math.max(0, snapshot.notes.length - 1),
-      );
-      const note = snapshot.notes[noteIdx];
-      if (!note) {
-        return { lines: [line('  Note not found.')] };
+      const noteLines = snapshot.notes.map((note, i) => {
+        const num = `${i + 1}.`;
+        const title = cleanForG2(note.title);
+        const maxT = LINE_W - num.length - 4;
+        const display = title.length > maxT ? title.slice(0, maxT - 1) + '~' : title;
+        return line(`  ${num} ${display}`, 'normal', i === nav.highlightedIndex);
+      });
+
+      const viewStart = listViewOffset(nav.highlightedIndex, noteLines.length);
+      const visible = noteLines.slice(viewStart, viewStart + CONTENT_LINES);
+      const content = padLines(visible);
+      if (viewStart > 0) {
+        content[0] = line('                     \u25B2', 'meta');
       }
-      const pages = paginateText(note.content, 46, 8);
-      const pageIdx = Math.min(
-        Math.max(0, nav.highlightedIndex),
-        Math.max(0, pages.length - 1),
-      );
-      const currentPage = pages[pageIdx] || [];
+      if (viewStart + CONTENT_LINES < noteLines.length) {
+        content[content.length - 1] = line('                     \u25BC', 'meta');
+      }
+
       return {
         lines: [
-          line(`  ${note.title}`, 'normal', true),
+          line('  FRIDAY \u203A Notes'),
           separator(),
-          ...currentPage.map((l) => line(`  ${l}`)),
-          line(''),
-          line(
-            `                    ${pageIndicator(pageIdx, pages.length)}`,
-            'meta',
-          ),
+          ...content,
+          separator(),
+          line(' \u2191\u2193 scroll   \u25CF open   \u25CF\u25CF home', 'meta'),
         ],
       };
     }
 
+    // ────────────────────────────────────────────
+    // NOTE DETAIL — paginated content
+    // ────────────────────────────────────────────
+    case 'note-detail': {
+      const note = snapshot.notes[snapshot.viewingNoteIndex];
+      if (!note) {
+        return {
+          lines: [
+            line('  Note'),
+            separator(),
+            ...padLines([line('  Note not found.')]),
+            separator(),
+            line(' \u25CF\u25CF back', 'meta'),
+          ],
+        };
+      }
+
+      const pages = paginateText(cleanForG2(note.content), 42, CONTENT_LINES);
+      const pageIdx = Math.min(Math.max(0, nav.highlightedIndex), Math.max(0, pages.length - 1));
+      const currentPage = pages[pageIdx] || [];
+      const indicator = pages.length > 1 ? pageIndicator(pageIdx, pages.length) : '';
+      const title = cleanForG2(note.title);
+      const maxTitle = indicator ? LINE_W - indicator.length - 3 : LINE_W - 2;
+      const displayTitle = title.length > maxTitle ? title.slice(0, maxTitle - 1) + '~' : title;
+
+      return {
+        lines: [
+          line(indicator ? rAlign(`  ${displayTitle}`, indicator) : `  ${displayTitle}`),
+          separator(),
+          ...padLines(currentPage.map(l => line(`  ${l}`)), CONTENT_LINES),
+          separator(),
+          line(' \u2191\u2193 page   \u25CF\u25CF back', 'meta'),
+        ],
+      };
+    }
+
+    // ────────────────────────────────────────────
+    // CONTACT CARD — scrollable details
+    // ────────────────────────────────────────────
     case 'contact': {
       const c = snapshot.contact;
       if (!c) {
         return {
           lines: [
-            line('  CONTACT'),
+            line('  FRIDAY \u203A Contact'),
             separator(),
-            line(''),
-            line('  No contact card.'),
-            line('  Push via POST /api/contact'),
+            ...padLines([
+              line(''),
+              line('  No contact card.'),
+              line('  Push via POST /api/contact'),
+            ]),
+            separator(),
+            line(' \u25CF\u25CF home', 'meta'),
           ],
         };
       }
+
+      const allLines = buildContactLines(c);
+      const offset = nav.highlightedIndex;
+      const content = scrollView(allLines, offset);
+
       return {
         lines: [
-          line(`  ${c.name}`, 'normal', true),
-          line(`  ${c.title}`, 'meta'),
-          line(`  ${c.company}`, 'meta'),
+          line('  FRIDAY \u203A Contact'),
           separator(),
-          line(`  ${c.context}`),
-          line(''),
-          ...c.talking_points.map((tp) => line(`  \u2022 ${tp}`)),
+          ...content,
+          separator(),
+          line(' \u2191\u2193 scroll   \u25CF\u25CF home', 'meta'),
         ],
       };
     }
 
+    // ────────────────────────────────────────────
+    // SETTINGS — toggle list
+    // ────────────────────────────────────────────
     case 'settings': {
+      const highlighted = nav.highlightedIndex;
+      const values = [
+        snapshot.conversation.micOn ? 'ON' : 'OFF',
+        snapshot.settings.showBattery ? 'ON' : 'OFF',
+        `${snapshot.settings.scrollSpeed}x`,
+        '\u2192',
+        '\u2192',
+      ];
+
+      const settingLines = SETTINGS_LABELS.map((label, i) =>
+        line(rAlign(`  ${label}`, `${values[i]}  `), 'normal', i === highlighted),
+      );
+
       return {
         lines: [
-          line('  SETTINGS'),
+          line('  FRIDAY \u203A Settings'),
           separator(),
-          line(`  Font Size: ${snapshot.settings.fontSize}`),
-          line(`  Scroll Speed: ${snapshot.settings.scrollSpeed}x`),
-          line(`  Dark Mode: ${snapshot.settings.darkMode ? 'ON' : 'OFF'}`),
-          line(
-            `  Show Battery: ${snapshot.settings.showBattery ? 'ON' : 'OFF'}`,
-          ),
+          ...padLines(settingLines),
+          separator(),
+          line(' \u2191\u2193 scroll   \u25CF toggle   \u25CF\u25CF home', 'meta'),
         ],
       };
     }
 
     default:
-      return { lines: [line('  FRIDAY AI')] };
+      return {
+        lines: [
+          line('  FRIDAY AI'),
+          separator(),
+          ...padLines([]),
+          separator(),
+          line('', 'meta'),
+        ],
+      };
   }
 }
 
@@ -411,81 +572,31 @@ export function App() {
       const screen = nav.screen;
 
       switch (action.type) {
+        // ── RING SCROLL ──
         case 'HIGHLIGHT_MOVE': {
           const dir = action.direction;
 
           if (screen === 'home') {
             const maxIdx = HOME_MENU.length - 1;
-            const next =
-              dir === 'down'
-                ? Math.min(nav.highlightedIndex + 1, maxIdx)
-                : Math.max(nav.highlightedIndex - 1, 0);
+            const next = dir === 'down'
+              ? Math.min(nav.highlightedIndex + 1, maxIdx)
+              : Math.max(nav.highlightedIndex - 1, 0);
             return { ...nav, highlightedIndex: next };
           }
 
           if (screen === 'teleprompter') {
-            scrollTeleprompter(dir);
-            const pages = paginateText(
-              snapshot.teleprompter.content || '',
-              46,
-              9,
-            );
+            const pages = paginateText(snapshot.teleprompter.content || '', 42, CONTENT_LINES);
             const maxPage = Math.max(0, pages.length - 1);
-            const next =
-              dir === 'down'
-                ? Math.min(nav.highlightedIndex + 1, maxPage)
-                : Math.max(nav.highlightedIndex - 1, 0);
+            const next = dir === 'down'
+              ? Math.min(nav.highlightedIndex + 1, maxPage)
+              : Math.max(nav.highlightedIndex - 1, 0);
             return { ...nav, highlightedIndex: next };
-          }
-
-          if (screen === 'notes') {
-            const maxIdx = Math.max(0, snapshot.notes.length - 1);
-            const next =
-              dir === 'down'
-                ? Math.min(nav.highlightedIndex + 1, maxIdx)
-                : Math.max(nav.highlightedIndex - 1, 0);
-            return { ...nav, highlightedIndex: next };
-          }
-
-          if (screen === 'note-detail') {
-            const noteIdx = Math.min(
-              nav.highlightedIndex,
-              snapshot.notes.length - 1,
-            );
-            const note = snapshot.notes[noteIdx];
-            if (note) {
-              const pages = paginateText(note.content, 46, 8);
-              const maxPage = Math.max(0, pages.length - 1);
-              const next =
-                dir === 'down'
-                  ? Math.min(nav.highlightedIndex + 1, maxPage)
-                  : Math.max(nav.highlightedIndex - 1, 0);
-              return { ...nav, highlightedIndex: next };
-            }
-            return nav;
           }
 
           if (screen === 'conversation') {
+            const allLines = buildConversationLines(snapshot);
+            const maxOffset = Math.max(0, allLines.length - CONTENT_LINES);
             const curOffset = snapshot.conversation.scrollOffset;
-            // Compute total lines to cap scroll (mirrors toDisplayData logic)
-            const convEntries = snapshot.conversation.entries;
-            let totalLines = 0;
-            if (snapshot.conversation.micOn || snapshot.conversation.isProcessing) totalLines += 2;
-            const lf = [...convEntries].reverse().find(e => e.role === 'friday');
-            if (lf) {
-              totalLines += 1; // "FRIDAY:" header
-              const words = lf.text.split(' ');
-              let cl = '  ';
-              for (const w of words) {
-                if ((cl + w).length > 38) { totalLines++; cl = '  ' + w + ' '; }
-                else { cl += w + ' '; }
-              }
-              if (cl.trim()) totalLines++;
-              totalLines += 1; // separator
-            }
-            const lu = [...convEntries].reverse().find(e => e.role === 'user');
-            if (lu) totalLines++;
-            const maxOffset = Math.max(0, totalLines - 5);
             if (dir === 'down') {
               setConversationScroll(Math.min(curOffset + 1, maxOffset));
             } else {
@@ -494,9 +605,51 @@ export function App() {
             return nav;
           }
 
+          if (screen === 'notes') {
+            const maxIdx = Math.max(0, snapshot.notes.length - 1);
+            const next = dir === 'down'
+              ? Math.min(nav.highlightedIndex + 1, maxIdx)
+              : Math.max(nav.highlightedIndex - 1, 0);
+            return { ...nav, highlightedIndex: next };
+          }
+
+          if (screen === 'note-detail') {
+            const note = snapshot.notes[snapshot.viewingNoteIndex];
+            if (note) {
+              const pages = paginateText(cleanForG2(note.content), 42, CONTENT_LINES);
+              const maxPage = Math.max(0, pages.length - 1);
+              const next = dir === 'down'
+                ? Math.min(nav.highlightedIndex + 1, maxPage)
+                : Math.max(nav.highlightedIndex - 1, 0);
+              return { ...nav, highlightedIndex: next };
+            }
+            return nav;
+          }
+
+          if (screen === 'contact') {
+            if (snapshot.contact) {
+              const allLines = buildContactLines(snapshot.contact);
+              const maxOffset = Math.max(0, allLines.length - CONTENT_LINES);
+              const next = dir === 'down'
+                ? Math.min(nav.highlightedIndex + 1, maxOffset)
+                : Math.max(nav.highlightedIndex - 1, 0);
+              return { ...nav, highlightedIndex: next };
+            }
+            return nav;
+          }
+
+          if (screen === 'settings') {
+            const maxIdx = SETTINGS_LABELS.length - 1;
+            const next = dir === 'down'
+              ? Math.min(nav.highlightedIndex + 1, maxIdx)
+              : Math.max(nav.highlightedIndex - 1, 0);
+            return { ...nav, highlightedIndex: next };
+          }
+
           return nav;
         }
 
+        // ── SINGLE TAP ──
         case 'SELECT_HIGHLIGHTED': {
           if (screen === 'home') {
             const target = HOME_MENU[nav.highlightedIndex];
@@ -515,8 +668,35 @@ export function App() {
           if (screen === 'notes') {
             const note = snapshot.notes[nav.highlightedIndex];
             if (note) {
+              setViewingNote(nav.highlightedIndex);
               navigate(`/notes/${note.id}`);
               return { ...nav, screen: 'note-detail', highlightedIndex: 0 };
+            }
+            return nav;
+          }
+
+          if (screen === 'settings') {
+            const idx = nav.highlightedIndex;
+            switch (idx) {
+              case 0: // Mic enabled
+                toggleMic();
+                break;
+              case 1: // Show battery
+                updateSettings({ showBattery: !snapshot.settings.showBattery });
+                break;
+              case 2: { // Scroll speed (cycle 1→2→3→1)
+                const speeds = [1, 2, 3];
+                const curIdx = speeds.indexOf(snapshot.settings.scrollSpeed);
+                updateSettings({ scrollSpeed: speeds[(curIdx + 1) % speeds.length] ?? 1 });
+                break;
+              }
+              case 3: // Clear history
+                clearConversation();
+                setFlash('History cleared');
+                break;
+              case 4: // About
+                setFlash('Friday AI v1.0');
+                break;
             }
             return nav;
           }
@@ -524,18 +704,22 @@ export function App() {
           return nav;
         }
 
+        // ── DOUBLE TAP (GO_BACK) ──
         case 'GO_BACK': {
-          if (screen === 'teleprompter') {
-            clearTeleprompter();
-            return { ...nav, highlightedIndex: 0 };
+          if (screen === 'home') {
+            setFlash('\u2605 Friday Active \u2605');
+            return nav;
           }
 
           if (screen === 'conversation') {
             clearConversation();
+            setConversationScroll(0);
+            setFlash('History cleared');
             return nav;
           }
 
-          if (screen === 'notes') {
+          if (screen === 'teleprompter') {
+            clearTeleprompter();
             navigate('/');
             return { ...nav, screen: 'home', highlightedIndex: 0 };
           }
@@ -545,17 +729,9 @@ export function App() {
             return { ...nav, screen: 'notes', highlightedIndex: 0 };
           }
 
-          if (screen === 'contact') {
-            navigate('/');
-            return { ...nav, screen: 'home', highlightedIndex: 0 };
-          }
-
-          if (screen === 'settings') {
-            navigate('/');
-            return { ...nav, screen: 'home', highlightedIndex: 0 };
-          }
-
-          return nav;
+          // All other sub-screens → home
+          navigate('/');
+          return { ...nav, screen: 'home', highlightedIndex: 0 };
         }
 
         default:
