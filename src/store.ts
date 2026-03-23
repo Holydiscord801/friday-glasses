@@ -1,4 +1,5 @@
 import type { AppState, Note, ContactCard, ConversationEntry, PageName } from './types';
+import { API_BASE } from './api';
 
 const initialState: AppState = {
   currentPage: 'home',
@@ -118,7 +119,7 @@ export function startPolling(intervalMs = 2000) {
   if (pollTimer) return;
   pollTimer = setInterval(async () => {
     try {
-      const res = await fetch('/api/state');
+      const res = await fetch(`${API_BASE}/api/state`);
       if (!res.ok) {
         setGlassesStatus({ connected: false });
         return;

@@ -1,14 +1,13 @@
 import { addConversationEntry, setProcessing } from '../store';
+import { API_BASE } from '../api';
 
 /**
- * useFriday - hook to interact with the Friday AI assistant.
- * Posts question to /api/ask which stores it as a pending_question.
- * The local friday-listener picks it up, calls OpenClaw, and POSTs
- * the response back to /api/answer. The response arrives via polling.
+ * useFriday — hook to interact with the Friday AI assistant.
+ * POSTs to the local Express server which calls OpenClaw directly
+ * and returns the answer synchronously.
  */
 export function useFriday() {
   async function sendMessage(message: string): Promise<void> {
-    // Add user entry to local conversation immediately
     addConversationEntry({
       role: 'user',
       text: message,
@@ -18,25 +17,30 @@ export function useFriday() {
     setProcessing(true);
 
     try {
-      const res = await fetch('/api/ask', {
+      const res = await fetch(`${API_BASE}/api/ask`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message }),
       });
 
-      if (!res.ok) {
-        throw new Error(`API returned ${res.status}`);
-      }
+      if (!res.ok) throw new Error(`API returned ${res.status}`);
 
-      // Response will arrive async via polling when friday-listener answers.
-      // isProcessing will be cleared by the polling loop when pending_question
-      // becomes null on the server.
+      const json = await res.json();
+      const fridayText = json.data?.fridayResponse?.text;
+      if (fridayText) {
+        addConversationEntry({
+          role: 'friday',
+          text: fridayText,
+          timestamp: json.data.fridayResponse.timestamp || new Date().toISOString(),
+        });
+      }
     } catch (err) {
       addConversationEntry({
         role: 'friday',
         text: `Error: ${err instanceof Error ? err.message : 'Unknown error occurred.'}`,
         timestamp: new Date().toISOString(),
       });
+    } finally {
       setProcessing(false);
     }
   }

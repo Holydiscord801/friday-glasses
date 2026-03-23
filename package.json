@@ -8,7 +8,8 @@
     "qr": "evenhub qr --http --port 5173",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "server": "node server/index.js"
   },
   "dependencies": {
     "@evenrealities/even_hub_sdk": "^0.0.7",
@@ -20,8 +21,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "tailwind-merge": "^3.5.0",
-    "anthropic": "^0.0.0",
-    "@anthropic-ai/sdk": "^0.52.0"
+    "express": "^5.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",

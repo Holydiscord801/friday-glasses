@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { addConversationEntry, setProcessing } from '../store';
+import { API_BASE } from '../api';
 
 /**
  * useAudioCapture — captures audio from the phone's browser mic,
@@ -60,27 +61,40 @@ export function useAudioCapture() {
           new Uint8Array(buf).reduce((s, b) => s + String.fromCharCode(b), ''),
         );
 
-        // Show processing state
-        addConversationEntry({
-          role: 'user',
-          text: '[Voice message]',
-          timestamp: new Date().toISOString(),
-        });
         setProcessing(true);
 
         try {
-          const res = await fetch('/api/audio', {
+          const res = await fetch(`${API_BASE}/api/audio`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ audio: base64 }),
           });
           if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
+
+          const json = await res.json();
+          const transcript = json.data?.transcript;
+          if (transcript) {
+            addConversationEntry({
+              role: 'user',
+              text: transcript,
+              timestamp: json.data.userMessage?.timestamp || new Date().toISOString(),
+            });
+          }
+          const fridayText = json.data?.fridayResponse?.text;
+          if (fridayText) {
+            addConversationEntry({
+              role: 'friday',
+              text: fridayText,
+              timestamp: json.data.fridayResponse.timestamp || new Date().toISOString(),
+            });
+          }
         } catch (err) {
           addConversationEntry({
             role: 'friday',
             text: `Audio error: ${err instanceof Error ? err.message : 'Unknown error'}`,
             timestamp: new Date().toISOString(),
           });
+        } finally {
           setProcessing(false);
         }
       };
