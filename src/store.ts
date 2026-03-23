@@ -123,17 +123,18 @@ export function startPolling(intervalMs = 2000) {
         setGlassesStatus({ connected: false });
         return;
       }
-      const data = await res.json();
+      const json = await res.json();
       setGlassesStatus({ connected: true });
-      if (data.lastUpdate && data.lastUpdate > state.lastUpdate) {
-        if (data.teleprompter) setState({ teleprompter: data.teleprompter });
-        if (data.notes) setState({ notes: data.notes });
-        if (data.contact !== undefined) setState({ contact: data.contact });
-        if (data.conversation) {
+      const remote = json.data;
+      if (remote?.lastUpdate && remote.lastUpdate > state.lastUpdate) {
+        if (remote.teleprompter) setState({ teleprompter: remote.teleprompter });
+        if (remote.notes) setState({ notes: remote.notes });
+        if (remote.contact !== undefined) setState({ contact: remote.contact });
+        if (remote.conversation) {
           setState({
             conversation: {
               ...state.conversation,
-              entries: data.conversation.entries ?? state.conversation.entries,
+              entries: remote.conversation.entries ?? state.conversation.entries,
             },
           });
         }
