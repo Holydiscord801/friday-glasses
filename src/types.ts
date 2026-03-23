@@ -44,6 +44,7 @@ export interface AppState {
     scrollSpeed: number;
     darkMode: boolean;
     showBattery: boolean;
+    keepAlive: boolean;
   };
   flashMessage: string | null;
   viewingNoteIndex: number;

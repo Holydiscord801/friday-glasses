@@ -5,6 +5,7 @@ import type { GlassAction, GlassNavState } from 'even-toolkit/types';
 import { line, separator } from 'even-toolkit/types';
 import { paginateText, pageIndicator, wordWrap } from 'even-toolkit/paginate-text';
 import { cleanForG2 } from 'even-toolkit/text-clean';
+import { activateKeepAlive, deactivateKeepAlive } from 'even-toolkit/keep-alive';
 import { NavBar } from 'even-toolkit/web/nav-bar';
 import { Page } from 'even-toolkit/web/page';
 import {
@@ -47,16 +48,19 @@ const HOME_MENU = ['conversation', 'teleprompter', 'notes', 'contact', 'settings
 const LINE_W = 44;       // usable chars per line (with margins)
 const CONTENT_LINES = 6; // lines in scrollable content area
 
-// Menu icons (G2-safe Unicode geometric shapes)
+// Home menu icons (G2-safe geometric shapes)
 const MENU_ICONS = ['\u25B6', '\u25A1', '\u25A0', '\u25C7', '\u25CB'] as const; // ▶ □ ■ ◇ ○
 const MENU_LABELS = ['Chat', 'Teleprompter', 'Notes', 'Contact', 'Settings'] as const;
 
 // Settings items
-const SETTINGS_LABELS = ['Mic enabled', 'Show battery', 'Scroll speed', 'Clear history', 'About'] as const;
+const SETTINGS_LABELS = [
+  'Mic enabled', 'Show battery', 'Scroll speed',
+  'Keep alive', 'Clear history', 'About',
+] as const;
 
 // ── G2 display helpers ──
 
-/** Right-align: put `left` on the left and `right` on the right, padded to width */
+/** Right-align: put `left` flush left and `right` flush right, padded to width */
 function rAlign(left: string, right: string, w = LINE_W): string {
   const gap = Math.max(1, w - left.length - right.length);
   return left + ' '.repeat(gap) + right;
@@ -74,12 +78,17 @@ function scrollView(all: DisplayLine[], offset: number, size = CONTENT_LINES): D
   const visible = all.slice(offset, offset + size);
   const padded = padLines(visible, size);
   if (offset > 0) {
-    padded[0] = line('                     \u25B2', 'meta');
+    padded[0] = line('                     \u25B2', 'meta');  // ▲
   }
   if (offset + size < all.length) {
-    padded[padded.length - 1] = line('                     \u25BC', 'meta');
+    padded[padded.length - 1] = line('                     \u25BC', 'meta');  // ▼
   }
   return padded;
+}
+
+/** Build a footer action-hint line (meta style) */
+function hint(...actions: string[]): DisplayLine {
+  return line(' ' + actions.join('   '), 'meta');
 }
 
 /** Build conversation content lines (shared between display and scroll calc) */
@@ -170,17 +179,22 @@ function pageNameFromScreen(screen: string): PageName {
 
 // ── Build glasses DisplayData from app state ──
 // Layout: header (1) + separator (1) + content (6) + separator (1) + footer (1) = 10 lines
+// 576x288 display, ~28px line height, 4-bit greyscale
 
 function toDisplayData(snapshot: AppState, nav: GlassNavState): DisplayData {
   // ── Flash message overlay ──
   if (snapshot.flashMessage) {
     const msg = snapshot.flashMessage;
     const pad = Math.max(0, Math.floor((LINE_W - msg.length) / 2));
+    const bar = '  ' + '\u2501'.repeat(40);  // ━━━━━
     return {
       lines: [
-        line(''), line(''), line(''),
+        line(''), line(''),
+        line(bar, 'meta'),
+        line(''),
         line(' '.repeat(pad) + msg),
-        line(''), line(''), line(''),
+        line(''),
+        line(bar, 'meta'),
         line(''), line(''), line(''),
       ],
     };
@@ -205,11 +219,11 @@ function toDisplayData(snapshot: AppState, nav: GlassNavState): DisplayData {
 
       return {
         lines: [
-          line(rAlign('  FRIDAY AI', `${dot} ${time}${bat}`)),
+          line(rAlign('  FRIDAY', `${dot} ${time}${bat}`)),
           separator(),
           ...padLines(menuLines, CONTENT_LINES),
           separator(),
-          line(' \u2191\u2193 scroll   \u25CF select   \u25CF\u25CF exit', 'meta'),
+          hint('\u25B2\u25BC Scroll', '\u25CF Select', '\u25CF\u25CF Exit'),
         ],
       };
     }
@@ -221,7 +235,7 @@ function toDisplayData(snapshot: AppState, nav: GlassNavState): DisplayData {
       if (!snapshot.teleprompter.content) {
         return {
           lines: [
-            line('  Teleprompter'),
+            line(rAlign('  FRIDAY', 'Teleprompter')),
             separator(),
             ...padLines([
               line(''),
@@ -229,7 +243,7 @@ function toDisplayData(snapshot: AppState, nav: GlassNavState): DisplayData {
               line('  Push via API or type below.'),
             ]),
             separator(),
-            line(' \u25CF\u25CF home', 'meta'),
+            hint('\u25CF\u25CF Home'),
           ],
         };
       }
@@ -240,11 +254,11 @@ function toDisplayData(snapshot: AppState, nav: GlassNavState): DisplayData {
 
       return {
         lines: [
-          line(rAlign('  Teleprompter', indicator)),
+          line(rAlign('  FRIDAY', `Teleprompter  ${indicator}`)),
           separator(),
           ...padLines(currentPage.map(l => line(`  ${l}`)), CONTENT_LINES),
           separator(),
-          line(' \u2191\u2193 page   \u25CF\u25CF clear', 'meta'),
+          hint('\u25B2\u25BC Page', '\u25CF\u25CF Clear'),
         ],
       };
     }
@@ -263,7 +277,7 @@ function toDisplayData(snapshot: AppState, nav: GlassNavState): DisplayData {
       if (entries.length === 0) {
         return {
           lines: [
-            line(rAlign('  FRIDAY \u203A Chat', micStatus)),
+            line(rAlign('  FRIDAY', `Chat  ${micStatus}`)),
             separator(),
             ...padLines([
               line(''),
@@ -271,7 +285,7 @@ function toDisplayData(snapshot: AppState, nav: GlassNavState): DisplayData {
               line('  Tap to start listening.'),
             ]),
             separator(),
-            line(' \u2191\u2193 scroll   \u25CF mic   \u25CF\u25CF clear', 'meta'),
+            hint('\u25B2\u25BC Scroll', '\u25CF Mic', '\u25CF\u25CF Home'),
           ],
         };
       }
@@ -282,11 +296,11 @@ function toDisplayData(snapshot: AppState, nav: GlassNavState): DisplayData {
 
       return {
         lines: [
-          line(rAlign('  FRIDAY \u203A Chat', micStatus)),
+          line(rAlign('  FRIDAY', `Chat  ${micStatus}`)),
           separator(),
           ...content,
           separator(),
-          line(' \u2191\u2193 scroll   \u25CF mic   \u25CF\u25CF clear', 'meta'),
+          hint('\u25B2\u25BC Scroll', '\u25CF Mic', '\u25CF\u25CF Home'),
         ],
       };
     }
@@ -298,7 +312,7 @@ function toDisplayData(snapshot: AppState, nav: GlassNavState): DisplayData {
       if (snapshot.notes.length === 0) {
         return {
           lines: [
-            line('  FRIDAY \u203A Notes'),
+            line(rAlign('  FRIDAY', 'Notes')),
             separator(),
             ...padLines([
               line(''),
@@ -306,7 +320,7 @@ function toDisplayData(snapshot: AppState, nav: GlassNavState): DisplayData {
               line('  Friday can add notes via API.'),
             ]),
             separator(),
-            line(' \u25CF\u25CF home', 'meta'),
+            hint('\u25CF\u25CF Home'),
           ],
         };
       }
@@ -331,11 +345,11 @@ function toDisplayData(snapshot: AppState, nav: GlassNavState): DisplayData {
 
       return {
         lines: [
-          line('  FRIDAY \u203A Notes'),
+          line(rAlign('  FRIDAY', 'Notes')),
           separator(),
           ...content,
           separator(),
-          line(' \u2191\u2193 scroll   \u25CF open   \u25CF\u25CF home', 'meta'),
+          hint('\u25B2\u25BC Scroll', '\u25CF Open', '\u25CF\u25CF Home'),
         ],
       };
     }
@@ -352,7 +366,7 @@ function toDisplayData(snapshot: AppState, nav: GlassNavState): DisplayData {
             separator(),
             ...padLines([line('  Note not found.')]),
             separator(),
-            line(' \u25CF\u25CF back', 'meta'),
+            hint('\u25CF\u25CF Home'),
           ],
         };
       }
@@ -371,7 +385,7 @@ function toDisplayData(snapshot: AppState, nav: GlassNavState): DisplayData {
           separator(),
           ...padLines(currentPage.map(l => line(`  ${l}`)), CONTENT_LINES),
           separator(),
-          line(' \u2191\u2193 page   \u25CF\u25CF back', 'meta'),
+          hint('\u25B2\u25BC Page', '\u25CF\u25CF Home'),
         ],
       };
     }
@@ -384,7 +398,7 @@ function toDisplayData(snapshot: AppState, nav: GlassNavState): DisplayData {
       if (!c) {
         return {
           lines: [
-            line('  FRIDAY \u203A Contact'),
+            line(rAlign('  FRIDAY', 'Contact')),
             separator(),
             ...padLines([
               line(''),
@@ -392,7 +406,7 @@ function toDisplayData(snapshot: AppState, nav: GlassNavState): DisplayData {
               line('  Push via POST /api/contact'),
             ]),
             separator(),
-            line(' \u25CF\u25CF home', 'meta'),
+            hint('\u25CF\u25CF Home'),
           ],
         };
       }
@@ -403,39 +417,43 @@ function toDisplayData(snapshot: AppState, nav: GlassNavState): DisplayData {
 
       return {
         lines: [
-          line('  FRIDAY \u203A Contact'),
+          line(rAlign('  FRIDAY', 'Contact')),
           separator(),
           ...content,
           separator(),
-          line(' \u2191\u2193 scroll   \u25CF\u25CF home', 'meta'),
+          hint('\u25B2\u25BC Scroll', '\u25CF\u25CF Home'),
         ],
       };
     }
 
     // ────────────────────────────────────────────
-    // SETTINGS — toggle list
+    // SETTINGS — toggle list with [ ON ] / [OFF ] brackets
     // ────────────────────────────────────────────
     case 'settings': {
       const highlighted = nav.highlightedIndex;
+
+      // Format toggle values with bracket style
+      const toggleVal = (on: boolean) => on ? '[ ON  ]' : '[ OFF ]';
       const values = [
-        snapshot.conversation.micOn ? 'ON' : 'OFF',
-        snapshot.settings.showBattery ? 'ON' : 'OFF',
-        `${snapshot.settings.scrollSpeed}x`,
-        '\u2192',
-        '\u2192',
+        toggleVal(snapshot.conversation.micOn),
+        toggleVal(snapshot.settings.showBattery),
+        `[ ${snapshot.settings.scrollSpeed}x  ]`,
+        toggleVal(snapshot.settings.keepAlive),
+        '     \u2192',  // →
+        '     \u2192',
       ];
 
       const settingLines = SETTINGS_LABELS.map((label, i) =>
-        line(rAlign(`  ${label}`, `${values[i]}  `), 'normal', i === highlighted),
+        line(rAlign(`  ${label}`, values[i]), 'normal', i === highlighted),
       );
 
       return {
         lines: [
-          line('  FRIDAY \u203A Settings'),
+          line(rAlign('  FRIDAY', 'Settings')),
           separator(),
           ...padLines(settingLines),
           separator(),
-          line(' \u2191\u2193 scroll   \u25CF toggle   \u25CF\u25CF home', 'meta'),
+          hint('\u25B2\u25BC Scroll', '\u25CF Toggle', '\u25CF\u25CF Home'),
         ],
       };
     }
@@ -443,7 +461,7 @@ function toDisplayData(snapshot: AppState, nav: GlassNavState): DisplayData {
     default:
       return {
         lines: [
-          line('  FRIDAY AI'),
+          line('  FRIDAY'),
           separator(),
           ...padLines([]),
           separator(),
@@ -690,11 +708,17 @@ export function App() {
                 updateSettings({ scrollSpeed: speeds[(curIdx + 1) % speeds.length] ?? 1 });
                 break;
               }
-              case 3: // Clear history
+              case 3: { // Keep alive
+                const newKA = !snapshot.settings.keepAlive;
+                updateSettings({ keepAlive: newKA });
+                if (newKA) activateKeepAlive(); else deactivateKeepAlive();
+                break;
+              }
+              case 4: // Clear history
                 clearConversation();
                 setFlash('History cleared');
                 break;
-              case 4: // About
+              case 5: // About
                 setFlash('Friday AI v1.0');
                 break;
             }
