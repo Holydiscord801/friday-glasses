@@ -2,10 +2,6 @@ import type { VercelRequest, VercelResponse } from './_store.js';
 import { cors, getStore, updateStore } from './_store.js';
 import type { ConversationEntry } from './_store.js';
 
-// Rewritten: no longer calls Anthropic directly.
-// Stores the question for the local friday-listener to pick up via OpenClaw.
-// Kept for backwards compatibility — /api/ask is the canonical endpoint.
-
 export default function handler(req: VercelRequest, res: VercelResponse) {
   if (cors(req, res)) return;
 
@@ -26,9 +22,11 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
     const store = getStore();
     const now = new Date().toISOString();
 
+    // Add user entry to conversation
     const userEntry: ConversationEntry = { role: 'user', text: message.trim(), timestamp: now };
     const entries = [...store.conversation.entries, userEntry];
 
+    // Store the pending question for the local listener to pick up
     updateStore({
       conversation: { entries },
       pending_question: message.trim(),
@@ -39,7 +37,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
       data: { userMessage: userEntry, pending: true },
     });
   } catch (err: any) {
-    console.error('[conversation]', err);
+    console.error('[ask]', err);
     return res.status(500).json({ success: false, error: err.message ?? 'Internal server error' });
   }
 }

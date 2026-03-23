@@ -135,6 +135,7 @@ export function startPolling(intervalMs = 2000) {
             conversation: {
               ...state.conversation,
               entries: remote.conversation.entries ?? state.conversation.entries,
+              isProcessing: remote.pending_question != null,
             },
           });
         }

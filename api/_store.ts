@@ -45,6 +45,7 @@ export interface ServerState {
   notes: Note[];
   contact: Contact | null;
   conversation: { entries: ConversationEntry[] };
+  pending_question: string | null;
   lastUpdate: number;
 }
 
@@ -53,6 +54,7 @@ const defaultState: ServerState = {
   notes: [],
   contact: null,
   conversation: { entries: [] },
+  pending_question: null,
   lastUpdate: Date.now(),
 };
 

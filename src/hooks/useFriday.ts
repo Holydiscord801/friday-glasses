@@ -2,12 +2,13 @@ import { addConversationEntry, setProcessing } from '../store';
 
 /**
  * useFriday - hook to interact with the Friday AI assistant.
- * Sends messages via the /api/conversation endpoint and
- * updates the store with the response.
+ * Posts question to /api/ask which stores it as a pending_question.
+ * The local friday-listener picks it up, calls OpenClaw, and POSTs
+ * the response back to /api/answer. The response arrives via polling.
  */
 export function useFriday() {
   async function sendMessage(message: string): Promise<void> {
-    // Add user entry to conversation
+    // Add user entry to local conversation immediately
     addConversationEntry({
       role: 'user',
       text: message,
@@ -17,7 +18,7 @@ export function useFriday() {
     setProcessing(true);
 
     try {
-      const res = await fetch('/api/conversation', {
+      const res = await fetch('/api/ask', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message }),
@@ -27,21 +28,15 @@ export function useFriday() {
         throw new Error(`API returned ${res.status}`);
       }
 
-      const json = await res.json();
-      const reply = json.data?.fridayResponse?.text ?? 'No response from Friday.';
-
-      addConversationEntry({
-        role: 'friday',
-        text: reply,
-        timestamp: new Date().toISOString(),
-      });
+      // Response will arrive async via polling when friday-listener answers.
+      // isProcessing will be cleared by the polling loop when pending_question
+      // becomes null on the server.
     } catch (err) {
       addConversationEntry({
         role: 'friday',
         text: `Error: ${err instanceof Error ? err.message : 'Unknown error occurred.'}`,
         timestamp: new Date().toISOString(),
       });
-    } finally {
       setProcessing(false);
     }
   }
