@@ -27,8 +27,8 @@ export function useFriday() {
         throw new Error(`API returned ${res.status}`);
       }
 
-      const data = await res.json();
-      const reply = data.reply ?? data.response ?? data.text ?? 'No response from Friday.';
+      const json = await res.json();
+      const reply = json.data?.fridayResponse?.text ?? 'No response from Friday.';
 
       addConversationEntry({
         role: 'friday',

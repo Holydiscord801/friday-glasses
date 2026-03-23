@@ -21,6 +21,7 @@ import {
 import type { AppState, PageName } from './types';
 import type { DisplayData } from 'even-toolkit/types';
 import { GlassesPreview } from './components/GlassesPreview';
+import { ConversationPage } from './pages/ConversationPage';
 import './App.css';
 
 // ── Nav items ──
@@ -291,19 +292,6 @@ function TeleprompterPage() {
       <div style={{ padding: '16px 0' }}>
         <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: 8 }}>
           Teleprompter
-        </h2>
-        <GlassesPreview />
-      </div>
-    </Page>
-  );
-}
-
-function ConversationPage() {
-  return (
-    <Page>
-      <div style={{ padding: '16px 0' }}>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 600, marginBottom: 8 }}>
-          Conversation
         </h2>
         <GlassesPreview />
       </div>
