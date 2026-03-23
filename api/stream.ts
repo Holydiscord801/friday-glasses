@@ -1,5 +1,5 @@
-import type { VercelRequest, VercelResponse } from './_store';
-import { cors, getStore } from './_store';
+import type { VercelRequest, VercelResponse } from './_store.js';
+import { cors, getStore } from './_store.js';
 
 const SSE_TIMEOUT_MS = 30_000; // Vercel hobby tier limit
 const POLL_INTERVAL_MS = 2_000;

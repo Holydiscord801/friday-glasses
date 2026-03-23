@@ -1,5 +1,5 @@
-import type { VercelRequest, VercelResponse } from './_store';
-import { cors, getStore, updateStore } from './_store';
+import type { VercelRequest, VercelResponse } from './_store.js';
+import { cors, getStore, updateStore } from './_store.js';
 
 export default function handler(req: VercelRequest, res: VercelResponse) {
   if (cors(req, res)) return;
