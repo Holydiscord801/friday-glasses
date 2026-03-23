@@ -37,7 +37,6 @@ export interface AppState {
   glasses: {
     connected: boolean;
     battery: number;
-    wearing: boolean;
   };
   settings: {
     fontSize: number;

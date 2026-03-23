@@ -6,7 +6,7 @@ const initialState: AppState = {
   notes: [],
   contact: null,
   conversation: { micOn: false, entries: [], isProcessing: false },
-  glasses: { connected: false, battery: 100, wearing: false },
+  glasses: { connected: false, battery: 100 },
   settings: { fontSize: 16, scrollSpeed: 1, darkMode: true, showBattery: true },
   lastUpdate: Date.now(),
 };

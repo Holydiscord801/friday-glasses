@@ -51,13 +51,6 @@ export function HomePage() {
                 {glasses.battery}%
               </Badge>
             </div>
-            <Divider variant="default" />
-            <div className="flex items-center justify-between">
-              <span className="text-text-dim text-sm">Wearing</span>
-              <Badge variant={glasses.wearing ? 'positive' : 'neutral'}>
-                {glasses.wearing ? 'Yes' : 'No'}
-              </Badge>
-            </div>
           </div>
         </Card>
 

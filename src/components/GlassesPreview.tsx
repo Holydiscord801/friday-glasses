@@ -67,7 +67,6 @@ export function GlassesPreview() {
             <div className="font-bold text-[9px] text-positive">FRIDAY ONLINE</div>
             <div className="text-text-dim mt-0.5">
               {glasses.connected ? 'Connected' : 'Disconnected'}
-              {glasses.wearing ? ' - Wearing' : ''}
             </div>
           </div>
         );

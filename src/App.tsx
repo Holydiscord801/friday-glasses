@@ -34,6 +34,9 @@ const NAV_ITEMS = [
   { id: 'settings', label: 'Settings' },
 ];
 
+// Screens navigable from the home menu on glasses
+const HOME_MENU = ['conversation', 'teleprompter', 'notes', 'contact', 'settings'] as const;
+
 // ── Helpers ──
 
 function deriveScreen(path: string): string {
@@ -85,18 +88,16 @@ function toDisplayData(snapshot: AppState, nav: GlassNavState): DisplayData {
       });
       const battery = `${snapshot.glasses.battery}%`;
       const status = snapshot.glasses.connected ? 'CONNECTED' : 'DISCONNECTED';
-      const wearing = snapshot.glasses.wearing ? 'Wearing' : 'Off head';
+      const menuLines = HOME_MENU.map((item, i) => {
+        const label = item.charAt(0).toUpperCase() + item.slice(1);
+        return line(`  ${label}`, 'normal', i === nav.highlightedIndex);
+      });
       return {
         lines: [
-          line(''),
-          line('   \u256D\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256E'),
-          line('   \u2502     F R I D A Y   A I    \u2502'),
-          line('   \u2570\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u256F'),
-          line(''),
-          line(`     ${time}    \u25A0 ${battery}`, 'meta'),
-          line(`     ${status}   ${wearing}`, 'meta'),
-          line(''),
-          line('   Ready for your command.'),
+          line('  FRIDAY AI'),
+          line(`  ${time}  \u25A0 ${battery}  ${status}`, 'meta'),
+          separator(),
+          ...menuLines,
         ],
       };
     }
@@ -397,6 +398,15 @@ export function App() {
         case 'HIGHLIGHT_MOVE': {
           const dir = action.direction;
 
+          if (screen === 'home') {
+            const maxIdx = HOME_MENU.length - 1;
+            const next =
+              dir === 'down'
+                ? Math.min(nav.highlightedIndex + 1, maxIdx)
+                : Math.max(nav.highlightedIndex - 1, 0);
+            return { ...nav, highlightedIndex: next };
+          }
+
           if (screen === 'teleprompter') {
             scrollTeleprompter(dir);
             const pages = paginateText(
@@ -444,6 +454,15 @@ export function App() {
         }
 
         case 'SELECT_HIGHLIGHTED': {
+          if (screen === 'home') {
+            const target = HOME_MENU[nav.highlightedIndex];
+            if (target) {
+              navigate(screenToPath(target));
+              return { ...nav, screen: target, highlightedIndex: 0 };
+            }
+            return nav;
+          }
+
           if (screen === 'conversation') {
             toggleMic();
             return nav;
