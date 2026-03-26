@@ -188,8 +188,10 @@ export function App() {
                 if (newKA) activateKeepAlive(); else deactivateKeepAlive();
                 break;
               }
-              case 4: clearConversation(); setFlash('History cleared'); break;
-              case 5: setFlash('Friday AI v1.0'); break;
+              case 4: updateSettings({ imuTracking: !snapshot.settings.imuTracking }); break;
+              case 5: updateSettings({ darkMode: !snapshot.settings.darkMode }); break;
+              case 6: clearConversation(); setFlash('History cleared'); break;
+              case 7: setFlash('Friday AI v1.1 \u00B7 SDK 0.0.9'); break;
             }
             return nav;
           }

@@ -58,7 +58,7 @@ export function SettingsPage() {
           />
         </SettingsGroup>
 
-        {/* Keep-alive */}
+        {/* Glasses hardware */}
         <SettingsGroup label="Glasses">
           <ListItem
             title="Keep-alive"
@@ -70,6 +70,16 @@ export function SettingsPage() {
                   updateSettings({ keepAlive: checked });
                   if (checked) activateKeepAlive(); else deactivateKeepAlive();
                 }}
+              />
+            }
+          />
+          <ListItem
+            title="IMU Tracking"
+            subtitle="Enable head-motion / gesture sensing"
+            trailing={
+              <Toggle
+                checked={settings.imuTracking}
+                onChange={(checked) => updateSettings({ imuTracking: checked })}
               />
             }
           />
@@ -158,7 +168,7 @@ export function SettingsPage() {
           <ListItem
             title="Version"
             trailing={
-              <span className="text-sm text-text-muted">1.0.0</span>
+              <span className="text-sm text-text-muted">1.1.0 (SDK 0.0.9)</span>
             }
           />
         </SettingsGroup>

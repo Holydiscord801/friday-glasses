@@ -5,7 +5,7 @@ import { paginateText, pageIndicator, wordWrap } from 'even-toolkit/paginate-tex
 import { cleanForG2 } from 'even-toolkit/text-clean';
 
 export const LINE_W = 44;
-export const CONTENT_LINES = 6;
+export const CONTENT_LINES = 8;
 
 export const HOME_MENU = ['conversation', 'teleprompter', 'notes', 'contact', 'settings'] as const;
 const MENU_ICONS = ['\u25B6', '\u25A1', '\u25A0', '\u25C7', '\u25CB'] as const;
@@ -13,7 +13,8 @@ const MENU_LABELS = ['Chat', 'Teleprompter', 'Notes', 'Contact', 'Settings'] as 
 
 export const SETTINGS_LABELS = [
   'Mic enabled', 'Show battery', 'Scroll speed',
-  'Keep alive', 'Clear history', 'About',
+  'Keep alive', 'IMU tracking', 'Dark mode',
+  'Clear history', 'About',
 ] as const;
 
 function rAlign(left: string, right: string, w = LINE_W): string {
@@ -46,20 +47,24 @@ function hint(...actions: string[]): DisplayLine {
 export function buildConversationLines(snapshot: AppState): DisplayLine[] {
   const { entries } = snapshot.conversation;
   const allLines: DisplayLine[] = [];
-  const lastFriday = [...entries].reverse().find(e => e.role === 'friday');
-  const lastUser = [...entries].reverse().find(e => e.role === 'user');
 
-  if (lastFriday) {
-    allLines.push(line('  FRIDAY:'));
-    for (const wl of wordWrap(cleanForG2(lastFriday.text), 40)) {
-      allLines.push(line(`  ${wl}`));
+  // Show last several entries (reversed so newest is at bottom)
+  const recent = entries.slice(-6);
+
+  for (let i = 0; i < recent.length; i++) {
+    const entry = recent[i];
+    if (i > 0) allLines.push(separator());
+
+    if (entry.role === 'friday') {
+      allLines.push(line('  FRIDAY:'));
+      for (const wl of wordWrap(cleanForG2(entry.text), 40)) {
+        allLines.push(line(`  ${wl}`));
+      }
+    } else {
+      const userText = cleanForG2(entry.text);
+      const truncated = userText.length > 38 ? userText.slice(0, 37) + '~' : userText;
+      allLines.push(line(`  You: ${truncated}`));
     }
-  }
-  if (lastUser) {
-    if (allLines.length > 0) allLines.push(separator());
-    const userText = cleanForG2(lastUser.text);
-    const truncated = userText.length > 38 ? userText.slice(0, 37) + '~' : userText;
-    allLines.push(line(`  You: ${truncated}`));
   }
   return allLines;
 }
@@ -71,12 +76,14 @@ export function buildContactLines(c: ContactCard): DisplayLine[] {
   allLines.push(line(`  ${subtitle.slice(0, 42)}`, 'meta'));
   if (c.context) {
     allLines.push(separator());
+    allLines.push(line('  CONTEXT', 'meta'));
     for (const wl of wordWrap(cleanForG2(c.context), 40)) {
       allLines.push(line(`  ${wl}`));
     }
   }
   if (c.talking_points.length > 0) {
     allLines.push(separator());
+    allLines.push(line('  TALKING POINTS', 'meta'));
     for (const tp of c.talking_points) {
       const wrapped = wordWrap(cleanForG2(tp), 38);
       allLines.push(line(`  \u2022 ${wrapped[0] || ''}`));
@@ -123,11 +130,28 @@ export function toDisplayData(snapshot: AppState, nav: GlassNavState): DisplayDa
       const menuLines = HOME_MENU.map((_, i) =>
         line(`   ${MENU_ICONS[i]} ${MENU_LABELS[i]}`, 'normal', i === nav.highlightedIndex),
       );
+
+      // ── Status bar: mic | notes count | contact name ──
+      const micTag = snapshot.conversation.micOn ? '\u25CF MIC' : '\u25CB mic';
+      const noteCount = snapshot.notes.length;
+      const noteTag = noteCount === 0 ? 'no notes' : `${noteCount} note${noteCount > 1 ? 's' : ''}`;
+      const contactTag = snapshot.contact ? cleanForG2(snapshot.contact.name).slice(0, 14) : 'no contact';
+      const statusLine = `  ${micTag} \u2502 ${noteTag} \u2502 ${contactTag}`;
+
+      // ── Briefing: last Friday response preview ──
+      const lastFriday = [...snapshot.conversation.entries].reverse().find(e => e.role === 'friday');
+      const briefing = lastFriday
+        ? cleanForG2(lastFriday.text).slice(0, 40)
+        : 'Say something to get started.';
+
       return {
         lines: [
           line(rAlign('  FRIDAY', `${dot} ${time}${bat}`)),
           separator(),
-          ...padLines(menuLines, CONTENT_LINES),
+          ...menuLines,
+          separator(),
+          line(`  ${briefing}`, 'meta'),
+          line(statusLine, 'meta'),
           separator(),
           hint('\u25B2\u25BC Scroll', '\u25CF Select', '\u25CF\u25CF Exit'),
         ],
@@ -292,6 +316,8 @@ export function toDisplayData(snapshot: AppState, nav: GlassNavState): DisplayDa
         toggleVal(snapshot.settings.showBattery),
         `[ ${snapshot.settings.scrollSpeed}x  ]`,
         toggleVal(snapshot.settings.keepAlive),
+        toggleVal(snapshot.settings.imuTracking ?? false),
+        toggleVal(snapshot.settings.darkMode),
         '     \u2192',
         '     \u2192',
       ];

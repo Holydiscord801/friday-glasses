@@ -8,7 +8,7 @@ const initialState: AppState = {
   contact: null,
   conversation: { micOn: false, entries: [], isProcessing: false, scrollOffset: 0 },
   glasses: { connected: false, battery: 100 },
-  settings: { fontSize: 16, scrollSpeed: 1, darkMode: true, showBattery: true, keepAlive: true },
+  settings: { fontSize: 16, scrollSpeed: 1, darkMode: true, showBattery: true, keepAlive: true, imuTracking: false },
   flashMessage: null,
   viewingNoteIndex: 0,
   lastUpdate: Date.now(),

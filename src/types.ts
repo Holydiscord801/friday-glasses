@@ -45,6 +45,7 @@ export interface AppState {
     darkMode: boolean;
     showBattery: boolean;
     keepAlive: boolean;
+    imuTracking: boolean;
   };
   flashMessage: string | null;
   viewingNoteIndex: number;
