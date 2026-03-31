@@ -1,23 +1,19 @@
 // ── Conversation Awareness Mode ─────────────────────────────────────────
-// Shows "Recording..." status with mic active.
-// Transcript area with speaker labels.
-// Notification area for AI-surfaced context.
-// Click to expand a notification, double-click to dismiss.
+// Live transcript + AI notifications. Click toggles rec. Double-click exits.
 
 import type { Container, AppState, GlassesEvent } from '../types';
-import { textContainer, UI, CHARS_PER_PAGE } from '../layout';
+import { textContainer, UI } from '../layout';
 
-// Demo transcript lines for the PoC
 const DEMO_TRANSCRIPT = [
-  'Speaker 1: We need to finalize the Q2 roadmap',
-  'Speaker 2: I think the AR integration should be priority',
-  'Speaker 1: Agreed. What about the timeline?',
-  'Speaker 2: Dan mentioned March 31 as the demo date',
+  'S1: We need to finalize the Q2 roadmap',
+  'S2: I think AR integration should be priority',
+  'S1: Agreed. What about the timeline?',
+  'S2: Dan mentioned Mar 31 as demo date',
 ];
 
 const DEMO_NOTIFICATIONS = [
-  'Dan Hu replied about navigation-free concept',
-  'Q2 roadmap doc shared in #product channel',
+  'Dan Hu replied re: navigation-free concept',
+  'Q2 roadmap doc shared in #product',
 ];
 
 export function initConversationState(state: AppState): AppState {
@@ -30,7 +26,6 @@ export function initConversationState(state: AppState): AppState {
 }
 
 function formatTranscript(lines: string[], maxChars: number): string {
-  // Show most recent lines that fit
   const result: string[] = [];
   let total = 0;
   for (let i = lines.length - 1; i >= 0; i--) {
@@ -43,41 +38,40 @@ function formatTranscript(lines: string[], maxChars: number): string {
 }
 
 export function renderConversation(state: AppState): Container[] {
-  // Container 0: Status header
-  const recStatus = state.isRecording ? `${UI.BULLET} Recording` : '  Paused';
+  // Container 0: Header
+  const rec = state.isRecording ? `${UI.BULLET} REC` : '  Paused';
   const header = textContainer(0,
-    `Conversation ${recStatus}\n${UI.SEPARATOR}`,
+    `${UI.BOX_V} Conversation ${rec}\n${UI.SEPARATOR}`,
     { x: 0, y: 0, w: 576, h: 45 }
   );
 
-  // Container 1: Notification area (top section)
+  // Container 1: Notifications
   const notifText = state.conversationNotifications.length > 0
     ? state.conversationNotifications
         .map((n, i) => `${i === 0 ? UI.ARROW_RIGHT : '  '} ${n}`)
         .join('\n')
     : '  No notifications';
   const notifs = textContainer(1, notifText, {
-    x: 0, y: 48, w: 576, h: 65, border: 1,
+    x: 0, y: 48, w: 576, h: 60, border: 1,
   });
 
   // Container 2: Transcript (captures events)
-  const transcript = formatTranscript(state.conversationTranscript, 250);
+  const transcript = formatTranscript(state.conversationTranscript, 200);
   const body = textContainer(2, transcript, {
-    x: 0, y: 118, w: 576, h: 130, capture: true,
+    x: 0, y: 114, w: 576, h: 128, capture: true,
   });
 
-  // Container 3: Footer hint
+  // Container 3: Footer
   const footer = textContainer(3,
-    `  Click: toggle rec | Double-click: exit`,
-    { x: 0, y: 252, w: 576, h: 36 }
+    `  Click: toggle rec  ${UI.BOX_V}  ${UI.BULLET}${UI.BULLET} exit`,
+    { x: 0, y: 248, w: 576, h: 40 }
   );
 
   return [header, notifs, body, footer];
 }
 
-/** Get updatable transcript text for live updates */
 export function getTranscriptText(state: AppState): string {
-  return formatTranscript(state.conversationTranscript, 250);
+  return formatTranscript(state.conversationTranscript, 200);
 }
 
 export function handleConversationEvent(
@@ -93,7 +87,6 @@ export function handleConversationEvent(
 
   switch (event) {
     case 'CLICK_EVENT':
-      // Toggle recording
       next.isRecording = !state.isRecording;
       if (next.isRecording) {
         return { state: next, startMic: true };
@@ -101,7 +94,6 @@ export function handleConversationEvent(
       return { state: next, stopMic: true };
 
     case 'SCROLL_TOP_EVENT':
-      // Cycle through notifications
       if (state.conversationNotifications.length > 1) {
         const [first, ...rest] = state.conversationNotifications;
         next.conversationNotifications = [...rest, first];

@@ -1,6 +1,5 @@
 // ── Welcome Screen ──────────────────────────────────────────────────────
-// "Welcome to Even Realities" + AI provider selection list.
-// Scroll to navigate, click to select.
+// AI provider selection with polished layout.
 
 import type { Container, AppState, AIProvider, GlassesEvent } from '../types';
 import { textContainer, listContainer, cursorList, UI } from '../layout';
@@ -13,11 +12,17 @@ const AI_OPTIONS: { label: string; provider: AIProvider }[] = [
 ];
 
 export function renderWelcome(state: AppState): Container[] {
-  // Container 0: Title text
-  const title = textContainer(0,
-    `Welcome to Even Realities\n${UI.SEPARATOR}\nChoose your AI assistant:`,
-    { x: 0, y: 0, w: 576, h: 80 }
-  );
+  // Container 0: Header with box frame
+  const header = [
+    `${UI.BOX_TL}${UI.BOX_H.repeat(30)}${UI.BOX_TR}`,
+    `${UI.BOX_V} Even Realities`,
+    `${UI.BOX_V} Choose your AI:`,
+    `${UI.BOX_BL}${UI.BOX_H.repeat(30)}${UI.BOX_BR}`,
+  ].join('\n');
+
+  const title = textContainer(0, header, {
+    x: 0, y: 0, w: 576, h: 90,
+  });
 
   // Container 1: AI selection list with cursor
   const items = cursorList(
@@ -25,10 +30,16 @@ export function renderWelcome(state: AppState): Container[] {
     state.welcomeIndex
   );
   const list = listContainer(1, items, {
-    x: 0, y: 85, w: 576, h: 200, capture: true,
+    x: 0, y: 95, w: 576, h: 150, capture: true,
   });
 
-  return [title, list];
+  // Container 2: Footer hint
+  const footer = textContainer(2,
+    `${UI.SEPARATOR}\n  Scroll: browse  ${UI.BOX_V}  Click: select`,
+    { x: 0, y: 250, w: 576, h: 38 }
+  );
+
+  return [title, list, footer];
 }
 
 export function handleWelcomeEvent(
@@ -52,8 +63,6 @@ export function handleWelcomeEvent(
     case 'CLICK_EVENT': {
       const selected = AI_OPTIONS[state.welcomeIndex];
       next.selectedAI = selected.provider;
-
-      // Only Claude/Friday is functional in this PoC
       if (selected.provider === 'claude') {
         return { state: next, transition: 'main' };
       }

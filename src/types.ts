@@ -64,7 +64,8 @@ export type AppScreen =
   | 'chat'
   | 'teleprompter'
   | 'conversation'
-  | 'coming_soon';
+  | 'coming_soon'
+  | 'settings';
 
 export type AIProvider = 'claude' | 'gemini' | 'chatgpt' | 'openclaw';
 
@@ -84,12 +85,13 @@ export interface AppState {
   inactivityTimer: number | null;    // timeout ID for auto-sleep
   wakeWord: string;                   // configurable wake word
   sleepTimeoutMs: number;             // inactivity timeout in ms
+  settingsIndex: number;              // cursor position in settings menu
 }
 
 export function createInitialState(): AppState {
   return {
     screen: 'sleep',
-    selectedAI: null,
+    selectedAI: 'claude',
     welcomeIndex: 0,
     drawerIndex: 0,
     chatMessages: [],
@@ -103,5 +105,6 @@ export function createInitialState(): AppState {
     inactivityTimer: null,
     wakeWord: 'Friday',
     sleepTimeoutMs: 30_000,  // 30 seconds default
+    settingsIndex: 0,
   };
 }

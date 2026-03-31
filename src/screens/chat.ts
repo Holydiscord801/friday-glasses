@@ -1,7 +1,5 @@
 // ── Chat Mode ───────────────────────────────────────────────────────────
-// Simple text display showing AI conversation.
-// Click starts voice input (mic), responses display as scrollable text.
-// Double-click dismisses back to main display.
+// AI conversation display. Click toggles voice. Double-click exits.
 
 import type { Container, AppState, GlassesEvent } from '../types';
 import { textContainer, UI, CHARS_PER_PAGE } from '../layout';
@@ -9,52 +7,48 @@ import { textContainer, UI, CHARS_PER_PAGE } from '../layout';
 function formatMessages(messages: string[]): string {
   if (messages.length === 0) {
     return [
-      'Chat Mode',
-      UI.SEPARATOR,
       '',
-      'Click to speak',
-      'Double-click to exit',
+      '  Say something...',
+      '',
+      '  Click to speak',
     ].join('\n');
   }
 
-  // Show the most recent messages that fit on screen
   const lines: string[] = [];
   for (let i = messages.length - 1; i >= 0; i--) {
     const msg = messages[i];
     const newLines = [msg, ''];
     const test = [...newLines, ...lines].join('\n');
-    if (test.length > CHARS_PER_PAGE) break;
+    if (test.length > CHARS_PER_PAGE - 80) break;
     lines.unshift(...newLines);
   }
-
   return lines.join('\n');
 }
 
 export function renderChat(state: AppState): Container[] {
-  // Container 0: Chat header
+  // Container 0: Header
+  const rec = state.isRecording ? `${UI.BULLET} REC` : '';
   const header = textContainer(0,
-    `Friday Chat ${state.isRecording ? `${UI.BULLET} REC` : ''}\n${UI.SEPARATOR}`,
+    `${UI.BOX_V} Friday Chat ${rec}\n${UI.SEPARATOR}`,
     { x: 0, y: 0, w: 576, h: 45 }
   );
 
-  // Container 1: Message display area (captures events)
-  const messageText = formatMessages(state.chatMessages);
-  const body = textContainer(1, messageText, {
-    x: 0, y: 48, w: 576, h: 200, capture: true,
+  // Container 1: Messages (captures events)
+  const body = textContainer(1, formatMessages(state.chatMessages), {
+    x: 0, y: 48, w: 576, h: 195, capture: true,
   });
 
-  // Container 2: Input hint
+  // Container 2: Footer
   const hint = state.isRecording
-    ? `${UI.BULLET} Listening... Click to stop`
-    : '  Click to speak  |  Double-click to exit';
+    ? `  ${UI.BULLET} Listening...  Click: stop`
+    : `  Click: speak  ${UI.BOX_V}  ${UI.BULLET}${UI.BULLET} exit`;
   const footer = textContainer(2, `${UI.SEPARATOR}\n${hint}`, {
-    x: 0, y: 252, w: 576, h: 36,
+    x: 0, y: 248, w: 576, h: 40,
   });
 
   return [header, body, footer];
 }
 
-/** Get updatable text for live streaming AI responses */
 export function getChatBodyText(state: AppState): string {
   return formatMessages(state.chatMessages);
 }
@@ -68,25 +62,18 @@ export function handleChatEvent(
   switch (event) {
     case 'CLICK_EVENT':
       if (state.isRecording) {
-        // Stop recording, process input
         next.isRecording = false;
-        // In a real implementation, the audio callback would have been
-        // accumulating audio data. Here we simulate a user message.
         if (next.chatInput) {
           next.chatMessages = [...state.chatMessages, `You: ${next.chatInput}`];
           next.chatInput = '';
         }
         return { state: next, stopMic: true };
       } else {
-        // Start recording
         next.isRecording = true;
         return { state: next, startMic: true };
       }
 
     case 'SCROLL_BOTTOM_EVENT':
-      // Could implement scroll through older messages
-      return { state: next };
-
     case 'SCROLL_TOP_EVENT':
       return { state: next };
 

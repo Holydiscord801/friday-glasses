@@ -1,6 +1,5 @@
 // ── Teleprompter Mode ───────────────────────────────────────────────────
-// Displays pre-loaded notes/text. Scrollable with swipe gestures.
-// Double-click to dismiss.
+// Scrollable presentation notes. Swipe/click pages. Double-click exits.
 
 import type { Container, AppState, GlassesEvent } from '../types';
 import { textContainer, paginateText, progressBar, UI, CHARS_PER_PAGE } from '../layout';
@@ -22,7 +21,7 @@ Our proof of concept demonstrates four key modes: direct chat with your AI, tele
 Thank you. I am happy to take questions.`;
 
 export function initTeleprompterState(state: AppState): AppState {
-  const pages = paginateText(DEMO_TEXT, CHARS_PER_PAGE - 60); // reserve for header/footer
+  const pages = paginateText(DEMO_TEXT, CHARS_PER_PAGE - 80);
   return {
     ...state,
     teleprompterText: DEMO_TEXT,
@@ -34,25 +33,25 @@ export function initTeleprompterState(state: AppState): AppState {
 export function renderTeleprompter(state: AppState): Container[] {
   const pages = state.teleprompterPages;
   const page = state.teleprompterPage;
-  const totalPages = pages.length;
-  const currentText = pages[page] ?? '';
+  const total = pages.length;
+  const text = pages[page] ?? '';
 
-  // Container 0: Header with page indicator
+  // Container 0: Header
   const header = textContainer(0,
-    `Teleprompter  ${page + 1}/${totalPages}\n${UI.SEPARATOR}`,
+    `${UI.BOX_V} Teleprompter  ${page + 1}/${total}\n${UI.SEPARATOR}`,
     { x: 0, y: 0, w: 576, h: 45 }
   );
 
-  // Container 1: Main text body (captures events)
-  const body = textContainer(1, currentText, {
-    x: 0, y: 48, w: 576, h: 200, capture: true,
+  // Container 1: Text body (captures events)
+  const body = textContainer(1, text, {
+    x: 0, y: 48, w: 576, h: 195, capture: true,
   });
 
-  // Container 2: Progress bar + hint
-  const bar = progressBar(page + 1, totalPages, 24);
+  // Container 2: Progress + hint
+  const bar = progressBar(page + 1, total, 24);
   const footer = textContainer(2,
-    `${bar}\n  Swipe to page | Double-click to exit`,
-    { x: 0, y: 252, w: 576, h: 36 }
+    `${bar}\n  Swipe: page  ${UI.BOX_V}  ${UI.BULLET}${UI.BULLET} exit`,
+    { x: 0, y: 248, w: 576, h: 40 }
   );
 
   return [header, body, footer];
@@ -78,7 +77,6 @@ export function handleTeleprompterEvent(
       return { state: next, transition: 'main' };
 
     case 'CLICK_EVENT':
-      // Click advances one page (alternative to swipe)
       next.teleprompterPage = Math.min(state.teleprompterPage + 1, maxPage);
       return { state: next };
 
