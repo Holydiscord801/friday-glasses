@@ -1,44 +1,20 @@
 {
-  "name": "friday-glasses",
+  "name": "friday-glasses-app",
+  "version": "0.1.0",
   "private": true,
-  "version": "0.0.0",
   "type": "module",
+  "description": "AI-agnostic display layer for Even Realities G2 smart glasses",
   "scripts": {
-    "dev": "vite --host 0.0.0.0 --port 5173",
-    "qr": "evenhub qr --http --port 5173",
-    "build": "tsc -b && vite build",
-    "lint": "eslint .",
+    "dev": "vite",
+    "build": "tsc && vite build",
     "preview": "vite preview",
-    "server": "node server/index.js"
+    "package": "evenhub-cli package"
   },
   "dependencies": {
-    "@evenrealities/even_hub_sdk": "^0.0.9",
-    "@jappyjan/even-better-sdk": "^0.0.10",
-    "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
-    "even-toolkit": "^1.0.1",
-    "express": "^5.1.0",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "react-router": "^7.0.0",
-    "tailwind-merge": "^3.5.0"
+    "@evenrealities/even_hub_sdk": "latest"
   },
   "devDependencies": {
-    "@eslint/js": "^9.39.4",
-    "@evenrealities/evenhub-cli": "^0.1.10",
-    "@evenrealities/evenhub-simulator": "^0.6.2",
-    "@tailwindcss/vite": "^4.0.0",
-    "@types/node": "^24.12.0",
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.1",
-    "eslint": "^9.39.4",
-    "eslint-plugin-react-hooks": "^7.0.1",
-    "eslint-plugin-react-refresh": "^0.5.2",
-    "globals": "^17.4.0",
-    "tailwindcss": "^4.0.0",
-    "typescript": "~5.9.3",
-    "typescript-eslint": "^8.57.0",
-    "vite": "^8.0.1"
+    "typescript": "^5.4.0",
+    "vite": "^5.4.0"
   }
 }
