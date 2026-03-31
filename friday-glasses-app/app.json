@@ -1,0 +1,13 @@
+{
+  "appId": "com.friday.glasses",
+  "name": "Friday",
+  "version": "0.1.0",
+  "description": "AI-agnostic display layer for Even Realities G2",
+  "icon": "public/icon.png",
+  "entry": "dist/index.html",
+  "permissions": [
+    "audio",
+    "imu",
+    "storage"
+  ]
+}
