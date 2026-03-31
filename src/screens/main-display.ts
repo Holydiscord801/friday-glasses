@@ -1,6 +1,6 @@
 // ── Main Display ────────────────────────────────────────────────────────
-// Always-on minimalistic view: time, date, connected AI status.
-// CLICK opens the drawer menu.
+// G2-style dashboard: time + date on left, AI status widget on right.
+// Click opens drawer. Double-click sleeps.
 
 import type { Container, AppState, GlassesEvent } from '../types';
 import { textContainer, UI } from '../layout';
@@ -24,7 +24,7 @@ function formatDate(): string {
 
 function aiDisplayName(ai: string | null): string {
   switch (ai) {
-    case 'claude': return 'Friday (Claude)';
+    case 'claude': return 'Claude (Friday)';
     case 'gemini': return 'Gemini';
     case 'chatgpt': return 'ChatGPT';
     case 'openclaw': return 'OpenClaw';
@@ -33,40 +33,57 @@ function aiDisplayName(ai: string | null): string {
 }
 
 export function renderMainDisplay(state: AppState): Container[] {
-  // Container 0: Time display (large, top area)
-  const timeText = textContainer(0,
-    `\n    ${formatTime()}`,
-    { x: 0, y: 0, w: 576, h: 100 }
-  );
-
-  // Container 1: Date display
-  const dateText = textContainer(1,
-    `    ${formatDate()}`,
-    { x: 0, y: 100, w: 576, h: 50 }
-  );
-
-  // Container 2: AI status + hint (captures events)
-  const statusContent = [
-    UI.SEPARATOR,
-    `${UI.BULLET} ${aiDisplayName(state.selectedAI)}`,
+  // Container 0: Time + date (left side)
+  const timeDate = [
     '',
-    '  Click to open menu',
+    `  ${formatTime()}`,
+    '',
+    `  ${formatDate()}`,
   ].join('\n');
 
-  const statusText = textContainer(2, statusContent, {
-    x: 0, y: 155, w: 576, h: 130, capture: true,
+  const timeContainer = textContainer(0, timeDate, {
+    x: 8, y: 8, w: 270, h: 140,
   });
 
-  return [timeText, dateText, statusText];
+  // Container 1: AI status widget (right side)
+  const aiStatus = [
+    `${UI.BOX_TL}${UI.BOX_H.repeat(22)}${UI.BOX_TR}`,
+    `${UI.BOX_V} ${UI.BULLET} ${aiDisplayName(state.selectedAI)}`,
+    `${UI.BOX_V}   Connected`,
+    `${UI.BOX_V}`,
+    `${UI.BOX_BL}${UI.BOX_H.repeat(22)}${UI.BOX_BR}`,
+  ].join('\n');
+
+  const statusWidget = textContainer(1, aiStatus, {
+    x: 290, y: 8, w: 278, h: 140,
+  });
+
+  // Container 2: Bottom bar with navigation hints (captures events)
+  const bottomBar = [
+    UI.SEPARATOR,
+    `  Click: menu  ${UI.BOX_V}  ${UI.BULLET}${UI.BULLET} sleep`,
+  ].join('\n');
+
+  const navHint = textContainer(2, bottomBar, {
+    x: 0, y: 158, w: 576, h: 128, capture: true,
+  });
+
+  return [timeContainer, statusWidget, navHint];
 }
 
 /** Returns the time string for live update via textContainerUpgrade */
 export function getTimeUpdateText(): string {
-  return `\n    ${formatTime()}`;
+  const timeDate = [
+    '',
+    `  ${formatTime()}`,
+    '',
+    `  ${formatDate()}`,
+  ].join('\n');
+  return timeDate;
 }
 
 export function getDateUpdateText(): string {
-  return `    ${formatDate()}`;
+  return `  ${formatDate()}`;
 }
 
 export function handleMainDisplayEvent(
@@ -77,7 +94,6 @@ export function handleMainDisplayEvent(
     return { state: { ...state, drawerIndex: 0 }, transition: 'drawer' };
   }
   if (event === 'DOUBLE_CLICK_EVENT') {
-    // Double-tap puts glasses back to sleep
     return { state, transition: 'sleep' };
   }
   return { state };
