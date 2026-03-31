@@ -15,7 +15,7 @@ const MENU_ITEMS: MenuItem[] = [
   { label: 'Chat',          screen: 'chat' },
   { label: 'Teleprompter',  screen: 'teleprompter' },
   { label: 'Conversation',  screen: 'conversation' },
-  { label: 'Settings',      screen: 'main' }, // placeholder: returns to main
+  { label: 'Settings',      screen: 'settings' },
 ];
 
 export function renderDrawer(state: AppState): Container[] {

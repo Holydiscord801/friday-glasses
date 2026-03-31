@@ -24,6 +24,7 @@ import {
   handleMainDisplayEvent,
 } from './screens/main-display';
 import { renderDrawer, handleDrawerEvent } from './screens/drawer';
+import { renderSettings, handleSettingsEvent } from './screens/settings';
 import { renderChat, getChatBodyText, handleChatEvent } from './screens/chat';
 import {
   renderTeleprompter,
@@ -109,6 +110,7 @@ function getContainersForScreen(screen: AppScreen): Container[] {
     case 'chat':          return renderChat(state);
     case 'teleprompter':  return renderTeleprompter(state);
     case 'conversation':  return renderConversation(state);
+    case 'settings':      return renderSettings(state);
     default:              return renderSleep(state);
   }
 }
@@ -250,6 +252,9 @@ function handleEvent(event: GlassesEvent): void {
       break;
     case 'conversation':
       result = handleConversationEvent(event, state);
+      break;
+    case 'settings':
+      result = handleSettingsEvent(event, state);
       break;
     default:
       result = { state };
