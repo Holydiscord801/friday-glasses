@@ -1,6 +1,17 @@
 // ── Main Display ────────────────────────────────────────────────────────
 // G2-style dashboard: time + date on left, AI status widget on right.
 // Click opens drawer. Double-click sleeps.
+//
+// Gesture mapping (current SDK limitations):
+//   CLICK_EVENT        → Open drawer menu (simulates long-press on real G2)
+//   DOUBLE_CLICK_EVENT → Sleep / dismiss
+//   SCROLL_TOP/BOTTOM  → (reserved for future widget cycling)
+//
+// Ideal mapping (if SDK adds long-press support):
+//   Long-press (hold)  → Open drawer menu (matches real G2 behavior)
+//   CLICK_EVENT        → Cycle right-side widget
+//   DOUBLE_CLICK_EVENT → Sleep / dismiss
+//   SCROLL_TOP/BOTTOM  → Scroll within active widget
 
 import type { Container, AppState, GlassesEvent } from '../types';
 import { textContainer, UI } from '../layout';
