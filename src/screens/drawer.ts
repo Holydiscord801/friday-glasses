@@ -1,7 +1,6 @@
 // ── Drawer Menu ─────────────────────────────────────────────────────────
-// Left-side menu: Chat, Teleprompter, Conversation, Settings
-// Scroll to navigate, click to select.
-// Double-click to dismiss back to main display.
+// Navigation menu: Chat, Teleprompter, Conversation, Settings.
+// Scroll to navigate, click to select. Double-click to dismiss.
 
 import type { Container, AppState, AppScreen, GlassesEvent } from '../types';
 import { textContainer, listContainer, cursorList, UI } from '../layout';
@@ -22,22 +21,22 @@ export function renderDrawer(state: AppState): Container[] {
   // Container 0: Header
   const header = textContainer(0,
     `${UI.BOX_V} Friday Menu\n${UI.SEPARATOR}`,
-    { x: 0, y: 0, w: 576, h: 55 }
+    { x: 0, y: 0, w: 576, h: 50 }
   );
 
-  // Container 1: Menu list with cursor
+  // Container 1: Menu list (captures events)
   const items = cursorList(
     MENU_ITEMS.map(m => m.label),
     state.drawerIndex
   );
   const list = listContainer(1, items, {
-    x: 0, y: 60, w: 576, h: 180, capture: true,
+    x: 0, y: 55, w: 576, h: 150, capture: true,
   });
 
-  // Container 2: Footer hint
+  // Container 2: Footer
   const footer = textContainer(2,
-    `${UI.SEPARATOR}\n  Double-click to close`,
-    { x: 0, y: 245, w: 576, h: 43 }
+    `${UI.SEPARATOR}\n  Scroll: browse  ${UI.BOX_V}  ${UI.BULLET}${UI.BULLET} close`,
+    { x: 0, y: 248, w: 576, h: 40 }
   );
 
   return [header, list, footer];

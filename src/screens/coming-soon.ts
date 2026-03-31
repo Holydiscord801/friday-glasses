@@ -1,5 +1,5 @@
 // ── Coming Soon Screen ──────────────────────────────────────────────────
-// Shown when a non-Claude AI is selected. Click to go back.
+// Shown when a non-Claude AI is selected. Click goes back.
 
 import type { Container, AppState, GlassesEvent } from '../types';
 import { textContainer, UI } from '../layout';
@@ -9,13 +9,13 @@ export function renderComingSoon(state: AppState): Container[] {
   const displayName = name.charAt(0).toUpperCase() + name.slice(1);
 
   const content = [
-    `${displayName} Integration`,
-    UI.SEPARATOR,
+    `${UI.BOX_TL}${UI.BOX_H.repeat(26)}${UI.BOX_TR}`,
+    `${UI.BOX_V} ${displayName}`,
+    `${UI.BOX_V} Coming Soon`,
+    `${UI.BOX_BL}${UI.BOX_H.repeat(26)}${UI.BOX_BR}`,
     '',
-    'Coming Soon',
-    '',
-    `${displayName} support is under development.`,
-    'Check back in a future update.',
+    `  ${displayName} support is under`,
+    '  development.',
     '',
     UI.SEPARATOR,
     '  Click to go back',
