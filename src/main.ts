@@ -1,5 +1,5 @@
 // ── Entry point ─────────────────────────────────────────────────────────
-// Initializes the Even Hub bridge and starts the Friday app.
+// Initializes the Even Hub bridge (async) and starts the Friday app.
 
 import { initBridge, registerEventHandler, isSimulatorMode } from './bridge';
 import { startApp, onWakeWord, onAIResponse, onTranscriptLine, onAINotification, getState } from './app';
@@ -7,11 +7,11 @@ import { log, setStatus } from './logger';
 
 // ── Boot ────────────────────────────────────────────────────────────────
 
-function boot(): void {
+async function boot(): Promise<void> {
   log('Friday v0.1.0 — AI-agnostic display layer for Even Realities G2');
   log('────────────────────────────────────────────────');
 
-  const sdkAvailable = initBridge();
+  const sdkAvailable = await initBridge();
 
   if (sdkAvailable) {
     setStatus('Connected to Even Hub SDK');
@@ -68,7 +68,7 @@ Keyboard shortcuts:
 // ── Start ───────────────────────────────────────────────────────────────
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', boot);
+  document.addEventListener('DOMContentLoaded', () => { void boot(); });
 } else {
-  boot();
+  void boot();
 }
